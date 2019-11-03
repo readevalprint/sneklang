@@ -1,2 +1,2 @@
 include README.rst
-include test_simpleeval.py
+include test_snek.py
