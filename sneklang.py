@@ -442,6 +442,7 @@ class SnekEval(object):
             # not really none, these are handled differently
             ast.And: None,
             ast.Or: None,
+            ast.Store: None,  # Not used, needed for validation
         }
 
         self.assignments = {
@@ -470,12 +471,32 @@ class SnekEval(object):
                         )
                     )
 
+    def validate(self, expr):
+        tree = ast.parse(expr)
+        ignored_nodes = set(
+            [ast.Load, ast.Del, ast.Starred, ast.arg, ast.comprehension, ast.alias]
+        )
+        valid_nodes = (
+            ignored_nodes
+            | set(self.nodes)
+            | set(self.operators)
+            | set(self.deletions)
+            | set(self.assignments)
+        )
+        for node in ast.walk(tree):
+            if node.__class__ not in valid_nodes:
+                raise FeatureNotAvailable(
+                    f"Sorry, {node.__class__.__name__} is not available in this evaluator",
+                    node,
+                )
+        compile(expr, "<string>", "exec", dont_inherit=True)
+
     def eval(self, expr):
         """ evaluate an expresssion, using the operators, functions and
             scope previously set up. """
 
         # set a copy of the expression aside, so we can give nice errors...
-
+        self.validate(expr)
         self.expr = expr
 
         # and evaluate:
