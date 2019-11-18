@@ -506,6 +506,8 @@ class SnekEval(object):
         """ The internal evaluator used on each node in the parsed tree. """
 
         self.track(node)
+        lineno = node.lineno
+        col = node.col
         try:
             handler = self.nodes[type(node)]
         except KeyError:
@@ -838,8 +840,8 @@ class SnekEval(object):
         return False
 
     def _eval_call(self, node):
+        qualname = func.__qualname__
         if len(self.call_stack) >= MAX_CALL_DEPTH:
-            # self.call_stack[:] = []  # need stack to pre
             raise CallTooDeep(
                 "Sorry, stack is to large. The MAX_CALL_DEPTH is {}.".format(
                     MAX_CALL_DEPTH
@@ -857,7 +859,7 @@ class SnekEval(object):
         except TypeError:
             if func.__qualname__ not in WHITLIST_ATTRIBUTES:
                 raise FeatureNotAvailable(
-                    "this function is not allowed: {}".format(func.__qualname__), node
+                    "this function is not allowed: {}".format(qualname), node
                 )
         if func_hash and func in DISALLOW_FUNCTIONS:
             raise FeatureNotAvailable("This function is forbidden", node)
@@ -867,7 +869,7 @@ class SnekEval(object):
             and func.__qualname__ not in ALLOWED_BUILTINS
         ):
             raise FeatureNotAvailable(
-                f"This builtin function is not allowed: {func.__qualname__}", node
+                f"This builtin function is not allowed: {func.qualname}", node
             )
         kwarg_kwargs = [self._eval(k) for k in node.keywords]
 
