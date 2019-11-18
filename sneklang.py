@@ -506,8 +506,9 @@ class SnekEval(object):
         """ The internal evaluator used on each node in the parsed tree. """
 
         self.track(node)
-        lineno = node.lineno
-        col = node.col
+        lineno = node.lineno  # noqa: F841
+        col = node.col  # noqa: F841
+
         try:
             handler = self.nodes[type(node)]
         except KeyError:
@@ -840,7 +841,6 @@ class SnekEval(object):
         return False
 
     def _eval_call(self, node):
-        qualname = func.__qualname__
         if len(self.call_stack) >= MAX_CALL_DEPTH:
             raise CallTooDeep(
                 "Sorry, stack is to large. The MAX_CALL_DEPTH is {}.".format(
@@ -849,6 +849,7 @@ class SnekEval(object):
                 node,
             )
         func = self._eval(node.func)
+        qualname = func.__qualname__
         if not callable(func):
             raise SnekRuntimeError(
                 "Sorry, {} type is not callable".format(type(func).__name__), node
