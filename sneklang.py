@@ -853,7 +853,7 @@ class SnekEval(object):
             raise SnekRuntimeError(
                 "Sorry, {} type is not callable".format(type(func).__name__), node
             )
-        qualname = func.__qualname__
+        qualname = getattr(func, '__qualname__', None)
         func_hash = None
         try:
             func_hash = hash(func)
