@@ -506,8 +506,8 @@ class SnekEval(object):
         """ The internal evaluator used on each node in the parsed tree. """
 
         self.track(node)
-        lineno = node.lineno  # noqa: F841
-        col = node.col  # noqa: F841
+        lineno = getattr(node, 'lineno', None)  # noqa: F841
+        col = getattr(node, 'col', None)  # noqa: F841
 
         try:
             handler = self.nodes[type(node)]
@@ -849,11 +849,11 @@ class SnekEval(object):
                 node,
             )
         func = self._eval(node.func)
-        qualname = func.__qualname__
         if not callable(func):
             raise SnekRuntimeError(
                 "Sorry, {} type is not callable".format(type(func).__name__), node
             )
+        qualname = func.__qualname__
         func_hash = None
         try:
             func_hash = hash(func)
@@ -867,10 +867,10 @@ class SnekEval(object):
         if (
             func_hash
             and isinstance(func, types.BuiltinFunctionType)
-            and func.__qualname__ not in ALLOWED_BUILTINS
+            and qualname not in ALLOWED_BUILTINS
         ):
             raise FeatureNotAvailable(
-                f"This builtin function is not allowed: {func.qualname}", node
+                f"This builtin function is not allowed: {qualname}", node
             )
         kwarg_kwargs = [self._eval(k) for k in node.keywords]
 
