@@ -474,7 +474,18 @@ class SnekEval(object):
     def validate(self, expr):
         tree = ast.parse(expr)
         ignored_nodes = set(
-            [ast.Load, ast.Del, ast.Starred, ast.arg, ast.comprehension, ast.alias]
+            [
+                ast.Load,
+                ast.Del,
+                ast.Starred,
+                ast.arg,
+                ast.comprehension,
+                ast.alias,
+                ast.GeneratorExp,
+                ast.ListComp,
+                ast.DictComp,
+                ast.SetComp,
+            ]
         )
         valid_nodes = (
             ignored_nodes
@@ -506,8 +517,8 @@ class SnekEval(object):
         """ The internal evaluator used on each node in the parsed tree. """
 
         self.track(node)
-        lineno = getattr(node, 'lineno', None)  # noqa: F841
-        col = getattr(node, 'col', None)  # noqa: F841
+        lineno = getattr(node, "lineno", None)  # noqa: F841
+        col = getattr(node, "col", None)  # noqa: F841
 
         try:
             handler = self.nodes[type(node)]
@@ -853,7 +864,7 @@ class SnekEval(object):
             raise SnekRuntimeError(
                 "Sorry, {} type is not callable".format(type(func).__name__), node
             )
-        qualname = getattr(func, '__qualname__', None)
+        qualname = getattr(func, "__qualname__", None)
         func_hash = None
         try:
             func_hash = hash(func)
