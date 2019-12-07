@@ -335,6 +335,9 @@ DEFAULT_SCOPE = {
     "isinstance": isinstance,
     "Exception": SnekRuntimeError,
     "enumerate": enumerate,
+    "isinstance": isinstance,
+    "issubclass": issubclass,
+    "iter": iter,
 }
 
 
