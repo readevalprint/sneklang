@@ -128,7 +128,15 @@ DISALLOW_FUNCTIONS = {
     format,
 }
 
-ALLOWED_BUILTINS = ["str.join", "len", "print", "str.count"]
+ALLOWED_BUILTINS = [
+    "str.join",
+    "len",
+    "print",
+    "str.count",
+    "iter",
+    "issubclass",
+    "isinstance",
+]
 
 ########################################
 # Exceptions:
