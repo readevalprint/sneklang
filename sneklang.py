@@ -407,6 +407,7 @@ class SnekEval(object):
             self.modules = modules
 
         self.nodes = {
+            ast.Constant: self._eval_constant,
             ast.Num: self._eval_num,
             ast.Bytes: self._eval_bytes,
             ast.Str: self._eval_str,
@@ -741,6 +742,10 @@ class SnekEval(object):
     def _eval_assign(self, node):
         value = self._eval(node.value)
         return self._assign(node.targets, value)
+
+    @staticmethod
+    def _eval_constant(node):
+        return node.value
 
     @staticmethod
     def _eval_num(node):
