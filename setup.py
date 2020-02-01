@@ -1,6 +1,6 @@
 from setuptools import setup
 
-__version__ = "0.4.6"
+__version__ = "0.4.5"
 
 setup(
     name="sneklang",
