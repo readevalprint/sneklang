@@ -84,7 +84,6 @@ import ast
 import operator as op
 import sys
 import types
-import json
 import itertools
 from collections import Counter, defaultdict
 from functools import partial
@@ -1067,9 +1066,7 @@ class SnekEval(object):
         # size = get_size([self.scope, self._last_eval_result], seen)
         p = repr(self.scope)
         # print(len(p))
-        size = len(p) + len(
-            repr(self._last_eval_result)
-        )
+        size = len(p) + len(repr(self._last_eval_result))
         if size > MAX_SCOPE_SIZE:
             raise ScopeTooLarge(
                 f"Scope has used too much memory: { size } > {MAX_SCOPE_SIZE}", node
