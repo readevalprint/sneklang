@@ -917,7 +917,10 @@ class SnekEval(object):
             f = partial(f, **kwargs)
 
         self.call_stack.append([node, self.expr])
-        ret = f()
+        try:
+            ret = f()
+        except Exception as e:
+            raise SnekRuntimeError(msg=repr(e), node=node)
         self.call_stack.pop()
         return ret
 
