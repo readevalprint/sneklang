@@ -79,7 +79,6 @@ Sorry, stack is to large. The MAX_CALL_DEPTH is 32.
 
 """
 
-import inspect
 import ast
 import operator as op
 import sys
@@ -454,6 +453,7 @@ class SnekEval(object):
             ast.For: self._eval_for,
             ast.While: self._eval_while,
             ast.Break: self._eval_break,
+            ast.Pass: self._eval_pass,
             ast.Assert: self._eval_assert,
             ast.Delete: self._eval_delete,
             ast.Raise: self._eval_raise,
@@ -563,7 +563,9 @@ class SnekEval(object):
 
     def _eval_assert(self, node):
         if not self._eval(node.test):
-            raise SnekAssertionError(self._eval(node.msg), node)
+            if node.msg:
+                raise SnekAssertionError(self._eval(node.msg), node)
+            raise SnekAssertionError("", node)
 
     def _eval_while(self, node):
         while self._eval(node.test):
@@ -651,6 +653,9 @@ class SnekEval(object):
 
     def _eval_break(self, node):
         raise Break()
+
+    def _eval_pass(self, node):
+        pass
 
     def _eval_return(self, node):
         ret = None
@@ -1077,11 +1082,7 @@ class SnekEval(object):
         self.nodes_called += 1
         if self.nodes_called > MAX_NODE_CALLS:
             raise TooManyEvaluations("This program has too many evaluations", node)
-        # seen = dict()
-        # size = get_size([self.scope, self._last_eval_result], seen)
-        p = repr(self.scope)
-        # print(len(p))
-        size = len(p) + len(repr(self._last_eval_result))
+        size = len(repr(self.scope)) + len(repr(self._last_eval_result))
         if size > MAX_SCOPE_SIZE:
             raise ScopeTooLarge(
                 f"Scope has used too much memory: { size } > {MAX_SCOPE_SIZE}", node
@@ -1237,37 +1238,3 @@ def ascii_format_coverage(coverage, source):
         out += (c * "-") + "^\n"
     out += f"{ int(pct * 100) }% coverage\n"
     return out
-
-
-def get_size(obj, seen):
-    """Recursively finds size of objects in bytes"""
-    size = sys.getsizeof(obj)
-    obj_id = id(obj)
-    if obj_id in seen:
-        return 0
-    seen[obj_id] = True
-    # Important mark as seen *before* entering recursion to gracefully handle
-    # self-referential objects
-    if hasattr(obj, "__dict__"):
-        for cls in obj.__class__.__mro__:  # pragma: no cover
-            if "__dict__" in cls.__dict__:
-                d = cls.__dict__["__dict__"]
-                if inspect.isgetsetdescriptor(d) or inspect.ismemberdescriptor(
-                    d
-                ):  # pragma: no cover
-                    size += get_size(obj.__dict__, seen)
-                break
-    if isinstance(obj, dict):
-        size += sum((get_size(v, seen) for v in obj.values()))
-        size += sum((get_size(k, seen) for k in obj.keys()))
-    elif hasattr(obj, "__iter__") and not isinstance(
-        obj, (str, bytes, bytearray, type)
-    ):
-        size += sum((get_size(i, seen) for i in obj))
-
-    if hasattr(obj, "__slots__"):  # can have __slots__ with __dict__
-        size += sum(
-            get_size(getattr(obj, s), seen) for s in obj.__slots__ if hasattr(obj, s)
-        )
-
-    return size

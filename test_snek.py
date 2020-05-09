@@ -75,6 +75,24 @@ assert True, "no"
 result = 1"""
     snek_is_still_python(code)
 
+    code = """
+result = 1
+try:
+    assert False, "no"
+except:
+    pass
+result = 2"""
+    snek_is_still_python(code)
+
+    code = """
+result = 1
+try:
+    assert False
+except:
+    pass
+result = 2"""
+    snek_is_still_python(code)
+
 
 def test_snek_delete():
     code = """
@@ -337,6 +355,9 @@ EXCEPTION_CASES = [
         {},
         "FeatureNotAvailable('Sorry, LShift is not available in this evaluator')",
     ),
+    ("assert False", {}, "SnekAssertionError('')"),
+    ("assert False, 'oh no'", {}, "SnekAssertionError('oh no')"),
+    ("(a for a in a)", {}, "FeatureNotAvailable('Sorry, GeneratorExp is not available in this evaluator')")
 ]
 
 
