@@ -177,7 +177,7 @@ Here you can see some extreamly ineffecient code to multiply a number by 2
 
 .. code-block:: python
 
-    >>> from sneklang import InvalidExpression, CallTooDeep
+    >>> from sneklang import InvalidExpression, CallTooDeep, SnekRuntimeError
     >>> user_scope = {}
     >>> out = snek_eval('''
     ... def multiply_by_2(x): 
@@ -197,9 +197,9 @@ Here you can see some extreamly ineffecient code to multiply a number by 2
 
     >>> try:
     ...     snek_eval("int('foo is not a number')")
-    ... except ValueError as e:
+    ... except SnekRuntimeError as e:
     ...     print('oh no! {}'.format(e))
-    oh no! invalid literal for int() with base 10: 'foo is not a number'
+    oh no! ValueError("invalid literal for int() with base 10: 'foo is not a number'")
 
 
 

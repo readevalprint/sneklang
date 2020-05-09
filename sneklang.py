@@ -91,9 +91,9 @@ import forge
 
 ########################################
 # Module wide 'globals'
-MAX_STRING_LENGTH = 100 * 1000
+MAX_STRING_LENGTH = 100000
 MAX_POWER = 100 * 100  # highest exponent
-MAX_SCOPE_SIZE = 2e4
+MAX_SCOPE_SIZE = MAX_STRING_LENGTH * 2
 MAX_NODE_CALLS = 10000
 MAX_CALL_DEPTH = 32
 DISALLOW_PREFIXES = ["_"]
@@ -136,7 +136,13 @@ ALLOWED_BUILTINS = [
     "iter",
     "issubclass",
     "isinstance",
+    "dict.items",
+    "dict.get",
+    "list.sort",
+    "dict.keys",
+    "dict.values",
 ]
+
 
 ########################################
 # Exceptions:
@@ -745,6 +751,13 @@ class SnekEval(object):
 
     @staticmethod
     def _eval_constant(node):
+        if len(repr(node.s)) > MAX_STRING_LENGTH:
+            raise ScopeTooLarge(
+                "Value is too large ({0} > {1} )".format(
+                    len(node.s), MAX_STRING_LENGTH
+                ),
+                node,
+            )
         return node.value
 
     @staticmethod
@@ -885,7 +898,7 @@ class SnekEval(object):
         try:
             func_hash = hash(func)
         except TypeError:
-            if func.__qualname__ not in WHITLIST_ATTRIBUTES:
+            if qualname not in WHITLIST_ATTRIBUTES:
                 raise FeatureNotAvailable(
                     "this function is not allowed: {}".format(qualname), node
                 )
@@ -918,6 +931,8 @@ class SnekEval(object):
         self.call_stack.append([node, self.expr])
         try:
             ret = f()
+        except CallTooDeep:
+            raise
         except Exception as e:
             raise SnekRuntimeError(msg=repr(e), node=node)
         self.call_stack.pop()

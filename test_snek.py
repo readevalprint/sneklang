@@ -151,6 +151,17 @@ else:
     result = 'nonono'
 """
     )
+    snek_is_still_python(
+        """
+result = []
+n = 0
+while n < 10:
+    n = n + 1
+    result = result + [n]
+    if n > 5:
+        break
+"""
+    )
 
 
 def test_snek_is_python_for():
@@ -177,6 +188,15 @@ result = [evens(s) for s in
  (5, 'f'),
  (6, 'g'),
  (7, 'h')],[], 'asdf'] ]
+"""
+    )
+    snek_is_still_python(
+        """
+result = []
+for n in [1,2,3,4,5,6,7,8,10]:
+    result = result + [n]
+    if n > 5:
+        break
 """
     )
 
@@ -206,11 +226,7 @@ result = [foo(i) for i in [-1,0,1, 'a']]
 
 EXCEPTION_CASES = [
     ("nope", {}, "NameNotDefined(\"'nope' is not defined\")"),
-    (
-        "a=1; a.b",
-        {},
-        "SnekAttributeError(\"'int' object has no attribute 'b'\")",
-    ),
+    ("a=1; a.b", {}, "SnekAttributeError(\"'int' object has no attribute 'b'\")"),
     ("1/0", {}, "SnekArithmeticError('division by zero')"),
     (
         "len(str(10000 ** 10001))",
@@ -218,19 +234,19 @@ EXCEPTION_CASES = [
         'SnekArithmeticError("Sorry! I don\'t want to evaluate 10000 ** 10001")',
     ),
     (
-        "'aaaa' * 25000",
+        "'aaaa' * 200000",
         {},
         "SnekArithmeticError('Sorry, I will not evalute something that long.')",
     ),
     (
-        "25000 * 'aaaa'",
+        "200000 * 'aaaa'",
         {},
         "SnekArithmeticError('Sorry, I will not evalute something that long.')",
     ),
     (
         "(10000 * 'world!') + (10000 * 'world!')",
         {},
-        "SnekArithmeticError('Sorry, I will not evalute something that long.')",
+        "SnekArithmeticError('Sorry, adding those two together would make something too long.')",
     ),
     (
         "4 @ 3",
@@ -247,41 +263,25 @@ EXCEPTION_CASES = [
         {},
         "FeatureNotAvailable('Sorry, VarKwargs are not available')",
     ),
-    (
-        "a,b = 1, 2",
-        {},
-        "FeatureNotAvailable('Sorry, cannot assign to Tuple')",
-    ),
-    (
-        "a=b=1",
-        {},
-        "FeatureNotAvailable('Sorry, cannot assign to 2 targets.')",
-    ),
+    ("a,b = 1, 2", {}, "FeatureNotAvailable('Sorry, cannot assign to Tuple')"),
+    ("a=b=1", {}, "FeatureNotAvailable('Sorry, cannot assign to 2 targets.')"),
     (
         "int.mro()",
         {},
         "FeatureNotAvailable('Sorry, this method is not available. (type.mro)')",
     ),
-    (
-        '"a"' * 100_001,
-        {},
-        "IterableTooLong('String Literal in statement is too long! (100001, when 100000 is max)')",
-    ),
+    (repr("a" * 100001), {}, "ScopeTooLarge('Value is too large (100001 > 100000 )')"),
     (
         "b'" + ("a" * 100_001) + "'",
         {},
-        "IterableTooLong('Byte Literal in statement is too long! (100001, when 100000 is max)')",
+        "ScopeTooLarge('Value is too large (100001 > 100000 )')",
     ),
     (
         repr(list("a" * 100001)),
         {},
         "IterableTooLong('List in statement is too long! (100001, when 100000 is max)')",
     ),
-    (
-        "1()",
-        {},
-        "SnekRuntimeError('Sorry, int type is not callable')",
-    ),
+    ("1()", {}, "SnekRuntimeError('Sorry, int type is not callable')"),
     (
         "forbidden_func()[0]()",
         {"forbidden_func": lambda: [type]},
@@ -292,16 +292,7 @@ EXCEPTION_CASES = [
         {"a": lambda: sorted},
         "FeatureNotAvailable('This builtin function is not allowed: sorted')",
     ),
-    (
-        "a()",
-        {"a": [].sort},
-        "DangerousValue(\"This function 'a' in scope might be a bad idea.\")",
-    ),
-    (
-        "a[1]",
-        {"a": []},
-        "SnekLookupError('list index out of range')",
-    ),
+    ("a[1]", {"a": []}, "SnekLookupError('list index out of range')"),
     (
         "a.__length__",
         {"a": []},
@@ -330,41 +321,32 @@ EXCEPTION_CASES = [
         {"a": object()},
         "SnekAttributeError(\"'object' object has no attribute 'b'\")",
     ),
-    (
-        "'a' + 1",
-        {},
-        "SnekTypeError('can only concatenate str (not \"int\") to str')",
-    ),
-    (
-        "import non_existant",
-        {},
-        "SnekImportError('non_existant')",
-    ),
+    ("'a' + 1", {}, "SnekTypeError('can only concatenate str (not \"int\") to str')"),
+    ("import non_existant", {}, "SnekImportError('non_existant')"),
+    ("from nowhere import non_existant", {}, "SnekImportError('non_existant')"),
     ('assert False, "no"', {}, "SnekAssertionError('no')"),
-    (
-        "del a,b,c",
-        {},
-        "FeatureNotAvailable('Sorry, cannot delete 3 targets.')",
-    ),
-    (
-        "del a.c",
-        {},
-        "FeatureNotAvailable('Sorry, cannot delete Attribute')",
-    ),
+    ("del a,b,c", {}, "FeatureNotAvailable('Sorry, cannot delete 3 targets.')"),
+    ("del a.c", {}, "FeatureNotAvailable('Sorry, cannot delete Attribute')"),
     (
         "[1,2,3][[]]",
         {},
         "SnekTypeError('list indices must be integers or slices, not list')",
     ),
+    (
+        "1<<1",
+        {},
+        "FeatureNotAvailable('Sorry, LShift is not available in this evaluator')",
+    ),
 ]
 
 
+@pytest.mark.filterwarnings("ignore::SyntaxWarning")
 def test_exceptions():
-    for code, scope, ex_repr in EXCEPTION_CASES:
+    for i, (code, scope, ex_repr) in enumerate(EXCEPTION_CASES):
         try:
             out = snek_eval(code, scope=scope)
         except Exception as exc:
-            assert repr(exc) == ex_repr, f"Failed {code}"
+            assert repr(exc) == ex_repr, f"Failed {code} \nin CASE {i}"
             continue
         pytest.fail("{}\nneeded to raise: {}\nreturned: {}".format(code, ex_repr, out))
 
@@ -461,6 +443,18 @@ def test_dissallowed_functions():
         snek_eval("", scope={"open": open})
 
 
+def test_return_nothing():
+    assert (
+        snek_eval(
+            """
+def foo():
+    return
+foo()"""
+        )
+        == [None, None]
+    )
+
+
 def test_eval_keyword():
     assert (
         snek_eval(
@@ -530,10 +524,10 @@ def test_foo():
         == """Missing Return on line: 3 col: 4
     return None
 ----^
-Missing NameConstant on line: 3 col: 11
+Missing Constant on line: 3 col: 11
     return None
 -----------^
-Missing Num on line: 7 col: 12
+Missing Constant on line: 7 col: 12
     return (1 if a else 2)
 ------------^
 87% coverage
