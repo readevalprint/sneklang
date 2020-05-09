@@ -84,6 +84,7 @@ import ast
 import operator as op
 import sys
 import types
+import json
 import itertools
 from collections import Counter, defaultdict
 from functools import partial
@@ -284,9 +285,9 @@ def safe_power(a, b):  # pylint: disable=invalid-name
 def safe_mult(a, b):  # pylint: disable=invalid-name
     """ limit the number of times an iterable can be repeated... """
     if hasattr(a, "__len__") and b * len(str(a)) >= MAX_SCOPE_SIZE:
-        raise ArithmeticError("Sorry, I will not evalute something that long.")
+        raise SnekArithmeticError("Sorry, I will not evalute something that long.")
     if hasattr(b, "__len__") and a * len(str(b)) >= MAX_SCOPE_SIZE:
-        raise ArithmeticError("Sorry, I will not evalute something that long.")
+        raise SnekArithmeticError("Sorry, I will not evalute something that long.")
 
     return a * b
 
@@ -1055,8 +1056,12 @@ class SnekEval(object):
         if self.nodes_called > MAX_NODE_CALLS:
             raise TooManyEvaluations("This program has too many evaluations", node)
         # seen = dict()
-        # size = get_size([self.scope, self.return_values], seen)
-        size = len(str(self.scope)) + len(str(self._last_eval_result))
+        # size = get_size([self.scope, self._last_eval_result], seen)
+        p = repr(self.scope)
+        # print(len(p))
+        size = len(p) + len(
+            repr(self._last_eval_result)
+        )
         if size > MAX_SCOPE_SIZE:
             raise ScopeTooLarge(
                 f"Scope has used too much memory: { size } > {MAX_SCOPE_SIZE}", node
