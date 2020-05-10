@@ -167,8 +167,8 @@ class InvalidExpression(Exception):
 class DangerousValue(Exception):
     """ When you try to pass in something dangerous to snek, it won't catch everything though """
 
-    def __init__(self, msg):
-        super().__init__(msg)
+    def __init__(self, *args):
+        super().__init__(*args)
 
 
 class SnekRuntimeError(Exception):
@@ -185,6 +185,9 @@ class SnekRuntimeError(Exception):
     @property
     def col(self):
         return getattr(self.__node, "col_offset", None)
+
+    def __str__(self):
+        return str(self.__context__)
 
 
 class SnekArithmeticError(SnekRuntimeError):
@@ -226,10 +229,6 @@ class NameNotDefined(SnekRuntimeError):
         super(NameNotDefined, self).__init__(
             "'{0}' is not defined".format(node.id), node
         )
-
-
-class FeatureNotAvailable(SnekRuntimeError):
-    """ What you're trying to do is not allowed. """
 
 
 class NumberTooHigh(SnekRuntimeError):
@@ -274,7 +273,7 @@ class TooManyEvaluations(SnekRuntimeError):
 def safe_mod(a, b):
     """ only allow modulo on numbers, not string formating """
     if isinstance(a, str):
-        raise TypeError("Sorry, string formating is not supported")
+        raise NotImplementedError("String formating is not supported")
     return a % b
 
 
@@ -282,16 +281,16 @@ def safe_power(a, b):  # pylint: disable=invalid-name
     """ a limited exponent/to-the-power-of function, for safety reasons """
 
     if abs(a) > MAX_POWER or abs(b) > MAX_POWER:
-        raise ArithmeticError("Sorry! I don't want to evaluate {0} ** {1}".format(a, b))
+        raise MemoryError("Sorry! I don't want to evaluate {0} ** {1}".format(a, b))
     return a ** b
 
 
 def safe_mult(a, b):  # pylint: disable=invalid-name
     """ limit the number of times an iterable can be repeated... """
     if hasattr(a, "__len__") and b * len(str(a)) >= MAX_SCOPE_SIZE:
-        raise SnekArithmeticError("Sorry, I will not evalute something that long.")
+        raise MemoryError("Sorry, I will not evalute something that long.")
     if hasattr(b, "__len__") and a * len(str(b)) >= MAX_SCOPE_SIZE:
-        raise SnekArithmeticError("Sorry, I will not evalute something that long.")
+        raise MemoryError("Sorry, I will not evalute something that long.")
 
     return a * b
 
@@ -301,7 +300,7 @@ def safe_add(a, b):  # pylint: disable=invalid-name
 
     if hasattr(a, "__len__") and hasattr(b, "__len__"):
         if len(a) + len(b) > MAX_STRING_LENGTH:
-            raise ArithmeticError(
+            raise MemoryError(
                 "Sorry, adding those two together would make something too long."
             )
     return a + b
@@ -490,6 +489,7 @@ class SnekEval(object):
                     )
 
     def validate(self, expr):
+        """ Validate that all ast.Nodes are supported by this sandbox """
         tree = ast.parse(expr)
         ignored_nodes = set(
             [
@@ -514,7 +514,7 @@ class SnekEval(object):
         )
         for node in ast.walk(tree):
             if node.__class__ not in valid_nodes:
-                raise FeatureNotAvailable(
+                raise NotImplementedError(
                     f"Sorry, {node.__class__.__name__} is not available in this evaluator",
                     node,
                 )
@@ -524,8 +524,21 @@ class SnekEval(object):
         """ evaluate an expresssion, using the operators, functions and
             scope previously set up. """
 
+        try:
+            self.validate(expr)
+        except Exception as e:
+            # TODO: de duplicate this?
+            exc = e
+            for a in exc.args:
+                if isinstance(a, ast.AST):
+                    # use snke node in exception args if supplied
+                    node = a
+            # remove the snek node from args and use original exception os context
+            exc.args = tuple(a for a in exc.args if (not isinstance(a, ast.AST)))
+
+            raise SnekRuntimeError(msg=repr(exc), node=node) from exc
+
         # set a copy of the expression aside, so we can give nice errors...
-        self.validate(expr)
         self.expr = expr
 
         # and evaluate:
@@ -539,16 +552,29 @@ class SnekEval(object):
         col = getattr(node, "col", None)  # noqa: F841
 
         try:
-            handler = self.nodes[type(node)]
-        except KeyError:
-            raise FeatureNotAvailable(
-                "Sorry, {0} is not available in this "
-                "evaluator".format(type(node).__name__),
-                node,
-            )
-        # try:
-        node.call_stack = self.call_stack
-        self._last_eval_result = handler(node)
+            try:
+                handler = self.nodes[type(node)]
+            except KeyError:
+                raise NotImplementedError(
+                    "Sorry, {0} is not available in this "
+                    "evaluator".format(type(node).__name__),
+                    node,
+                )
+            node.call_stack = self.call_stack
+            self._last_eval_result = handler(node)
+        except (Return, Break, CallTooDeep, SnekRuntimeError):
+            raise
+        except Exception as e:
+            exc = e
+            for a in exc.args:
+                if isinstance(a, ast.AST):
+                    # use snke node in exception args if supplied
+                    node = a
+            # remove the snek node from args and use original exception os context
+            exc.args = tuple(a for a in exc.args if (not isinstance(a, ast.AST)))
+
+            raise SnekRuntimeError(msg=repr(exc), node=node) from exc
+
         self.track(node)
         return self._last_eval_result
         # except (ArithmeticError) as exc:
@@ -564,8 +590,8 @@ class SnekEval(object):
     def _eval_assert(self, node):
         if not self._eval(node.test):
             if node.msg:
-                raise SnekAssertionError(self._eval(node.msg), node)
-            raise SnekAssertionError("", node)
+                raise AssertionError(self._eval(node.msg))
+            raise AssertionError()
 
     def _eval_while(self, node):
         while self._eval(node.test):
@@ -608,15 +634,20 @@ class SnekEval(object):
             try:
                 self.scope[asname] = self.modules[alias.name]
             except KeyError:
-                raise SnekImportError(alias.name, node)
+                raise ModuleNotFoundError(alias.name)
 
     def _eval_importfrom(self, node):
         for alias in node.names:
             asname = alias.asname or alias.name
             try:
-                self.scope[asname] = self.modules[node.module].__dict__[alias.name]
+                try:
+                    module = self.modules[node.module]
+                except KeyError:
+                    raise ModuleNotFoundError(alias.name)
+                submodule = module.__dict__[alias.name]
+                self.scope[asname] = submodule
             except KeyError:
-                raise SnekImportError(alias.name, node)
+                raise ImportError(alias.name, node)
 
     def _eval_expr(self, node):
         return self._eval(node.value)
@@ -627,10 +658,10 @@ class SnekEval(object):
     def _eval_arguments(self, node):
 
         if node.vararg:
-            raise FeatureNotAvailable("Sorry, VarArgs are not available", node.vararg)
+            raise NotImplementedError("Sorry, VarArgs are not available", node.vararg)
 
         if node.kwarg:
-            raise FeatureNotAvailable("Sorry, VarKwargs are not available", node.kwarg)
+            raise NotImplementedError("Sorry, VarKwargs are not available", node.kwarg)
         NONEXISTANT_DEFAULT = object()  # a unique object to contrast with None
         args_and_defaults = []
         for (arg, default) in itertools.zip_longest(
@@ -706,7 +737,7 @@ class SnekEval(object):
 
     def _delete(self, targets):
         if len(targets) > 1:
-            raise FeatureNotAvailable(
+            raise NotImplementedError(
                 "Sorry, cannot delete {} targets.".format(len(targets)), targets[0]
             )
         target = targets[0]
@@ -714,7 +745,7 @@ class SnekEval(object):
             handler = self.deletions[type(target)]
             handler(target)
         except KeyError:
-            raise FeatureNotAvailable(
+            raise NotImplementedError(
                 "Sorry, cannot delete {}".format(type(target).__name__), target
             )
 
@@ -738,7 +769,7 @@ class SnekEval(object):
 
     def _assign(self, targets, value):
         if len(targets) > 1:
-            raise FeatureNotAvailable(
+            raise NotImplementedError(
                 "Sorry, cannot assign to {} targets.".format(len(targets)), targets[0]
             )
         target = targets[0]
@@ -746,7 +777,7 @@ class SnekEval(object):
             handler = self.assignments[type(target)]
             handler(target, value)
         except KeyError:
-            raise FeatureNotAvailable(
+            raise NotImplementedError(
                 "Sorry, cannot assign to {}".format(type(target).__name__), target
             )
 
@@ -801,15 +832,15 @@ class SnekEval(object):
             return self.operators[type(node.op)](
                 self._eval(node.left), self._eval(node.right)
             )
-        except ValueError as exc:  # pragma: no cover
-            # Is this possible?
-            raise SnekValueError(str(exc), node)
-        except TypeError as e:
-            raise SnekTypeError(str(e), node)
-        except ArithmeticError as exc:
-            raise SnekArithmeticError(str(exc), node)
+        # except ValueError as exc:  # pragma: no cover
+        #    # Is this possible?
+        #    raise SnekValueError(str(exc), node)
+        # except TypeError as e:
+        #    raise SnekTypeError(str(e), node)
+        # except ArithmeticError as exc:
+        #    raise SnekArithmeticError(str(exc), node)
         except KeyError:
-            raise FeatureNotAvailable(
+            raise NotImplementedError(
                 "Sorry, {0} is not available in this "
                 "evaluator".format(type(node.op).__name__),
                 node,
@@ -831,7 +862,7 @@ class SnekEval(object):
             return vout
         else:  # pragma: no cover
             # This should never happen as there are only two bool operators And and Or
-            raise FeatureNotAvailable(
+            raise NotImplementedError(
                 "Sorry, {0} is not available in this "
                 "evaluator".format(type(node).__name__),
                 node,
@@ -904,17 +935,17 @@ class SnekEval(object):
             func_hash = hash(func)
         except TypeError:
             if qualname not in WHITLIST_ATTRIBUTES:
-                raise FeatureNotAvailable(
+                raise NotImplementedError(
                     "this function is not allowed: {}".format(qualname), node
                 )
         if func_hash and func in DISALLOW_FUNCTIONS:
-            raise FeatureNotAvailable("This function is forbidden", node)
+            raise DangerousValue(f"This function is forbidden: {qualname}", node)
         if (
             func_hash
             and isinstance(func, types.BuiltinFunctionType)
             and qualname not in ALLOWED_BUILTINS
         ):
-            raise FeatureNotAvailable(
+            raise NotImplementedError(
                 f"This builtin function is not allowed: {qualname}", node
             )
         kwarg_kwargs = [self._eval(k) for k in node.keywords]
@@ -938,9 +969,11 @@ class SnekEval(object):
             ret = f()
         except CallTooDeep:
             raise
-        except Exception as e:
-            exc = e
-            raise SnekRuntimeError(msg=repr(exc), node=node) from exc
+        # except SnekRuntimeError:
+        #    raise
+        # except Exception as e:
+        #    exc = e
+        #    raise SnekRuntimeError(msg=repr(exc), node=node) from exc
         self.call_stack.pop()
         return ret
 
@@ -954,7 +987,9 @@ class SnekEval(object):
         try:
             return self.scope[node.id]
         except KeyError:
-            raise NameNotDefined(node)
+            msg = "'{0}' is not defined".format(node.id)
+            raise NameError(msg)
+            # raise NameNotDefined(node)
 
     def _eval_subscript(self, node):
         container = self._eval(node.value)
@@ -969,7 +1004,7 @@ class SnekEval(object):
     def _eval_attribute(self, node):
         for prefix in DISALLOW_PREFIXES:
             if node.attr.startswith(prefix):
-                raise FeatureNotAvailable(
+                raise NotImplementedError(
                     "Sorry, access to this attribute "
                     "is not available. "
                     "({0})".format(node.attr),
@@ -978,7 +1013,7 @@ class SnekEval(object):
         # eval node
         node_evaluated = self._eval(node.value)
         if (type(node_evaluated), node.attr) in DISALLOW_METHODS:
-            raise FeatureNotAvailable(
+            raise DangerousValue(
                 "Sorry, this method is not available. "
                 "({0}.{1})".format(node_evaluated.__class__.__name__, node.attr),
                 node,
@@ -1129,7 +1164,7 @@ class SnekEval(object):
         def do_generator(gi=0):
             g = node.generators[gi]
             if len(g.ifs) > 1:
-                raise FeatureNotAvailable(
+                raise NotImplementedError(
                     "Sorry, only one `if` allowed in list comprehension, consider booleans or a function",
                     node,
                 )
@@ -1215,7 +1250,7 @@ class SnekCoverage(SnekEval):
 
 
 def snek_test_coverage(expr, scope=None, call_stack=None, module_dict=None):
-    """ Simply evaluate an expresssion """
+    """ Run all test_* function in this expression """
 
     modules = make_modules(module_dict or {})
 

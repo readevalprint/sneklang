@@ -151,10 +151,12 @@ You can also delete variables and catch exception
     ... try:
     ...    raise Exception("this is my last resort")
     ... except Exception as e:
-    ...     exc = e
+    ...     caught_exception = e
     ... ''', scope=user_scope)
-    >>> user_scope['exc']
-    SnekRuntimeError('this is my last resort')
+    >>> user_scope['caught_exception']
+    SnekRuntimeError("Exception('this is my last resort')")
+    >>> user_scope['caught_exception'].__context__
+    Exception('this is my last resort')
 
 .. code-block:: python
 
@@ -164,12 +166,16 @@ You can also delete variables and catch exception
     ...     try:
     ...         1/0
     ...     except Exception as e:
-    ...         raise Exception("oh no") from e
+    ...         raise Exception("Bad math") from e
     ... except Exception as e:
-    ...     exc = e
+    ...     caught_exception = e
     ... ''', scope=user_scope)
-    >>> user_scope['exc']
-    SnekRuntimeError('oh no')
+    >>> user_scope['caught_exception']
+    SnekRuntimeError("Exception('Bad math')")
+    >>> user_scope['caught_exception'].__context__
+    Exception('Bad math')
+    >>> user_scope['caught_exception'].__context__.__context__
+    SnekArithmeticError('division by zero')
 
 
 And sometimes, users write crappy code... `MAX_CALL_DEPTH` is configurable, of course.

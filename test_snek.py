@@ -243,50 +243,58 @@ result = [foo(i) for i in [-1,0,1, 'a']]
 
 
 EXCEPTION_CASES = [
-    ("nope", {}, "NameNotDefined(\"'nope' is not defined\")"),
+    ("nope", {}, "SnekRuntimeError('NameError(\"\\'nope\\' is not defined\")')"),
     ("a=1; a.b", {}, "SnekAttributeError(\"'int' object has no attribute 'b'\")"),
-    ("1/0", {}, "SnekArithmeticError('division by zero')"),
+    ("1/0", {}, "SnekRuntimeError(\"ZeroDivisionError('division by zero')\")"),
     (
         "len(str(10000 ** 10001))",
         {},
-        'SnekArithmeticError("Sorry! I don\'t want to evaluate 10000 ** 10001")',
+        "SnekRuntimeError('MemoryError(\"Sorry! I don\\'t want to evaluate 10000 ** 10001\")')",
     ),
     (
         "'aaaa' * 200000",
         {},
-        "SnekArithmeticError('Sorry, I will not evalute something that long.')",
+        "SnekRuntimeError(\"MemoryError('Sorry, I will not evalute something that long.')\")",
     ),
     (
         "200000 * 'aaaa'",
         {},
-        "SnekArithmeticError('Sorry, I will not evalute something that long.')",
+        "SnekRuntimeError(\"MemoryError('Sorry, I will not evalute something that long.')\")",
     ),
     (
         "(10000 * 'world!') + (10000 * 'world!')",
         {},
-        "SnekArithmeticError('Sorry, adding those two together would make something too long.')",
+        "SnekRuntimeError(\"MemoryError('Sorry, adding those two together would make something too long.')\")",
     ),
     (
         "4 @ 3",
         {},
-        "FeatureNotAvailable('Sorry, MatMult is not available in this evaluator')",
+        "SnekRuntimeError(\"NotImplementedError('Sorry, MatMult is not available in this evaluator')\")",
     ),
     (
         "def foo(*args): 1",
         {},
-        "FeatureNotAvailable('Sorry, VarArgs are not available')",
+        "SnekRuntimeError(\"NotImplementedError('Sorry, VarArgs are not available')\")",
     ),
     (
         "def foo(**kwargs): 1",
         {},
-        "FeatureNotAvailable('Sorry, VarKwargs are not available')",
+        "SnekRuntimeError(\"NotImplementedError('Sorry, VarKwargs are not available')\")",
     ),
-    ("a,b = 1, 2", {}, "FeatureNotAvailable('Sorry, cannot assign to Tuple')"),
-    ("a=b=1", {}, "FeatureNotAvailable('Sorry, cannot assign to 2 targets.')"),
+    (
+        "a,b = 1, 2",
+        {},
+        "SnekRuntimeError(\"NotImplementedError('Sorry, cannot assign to Tuple')\")",
+    ),
+    (
+        "a=b=1",
+        {},
+        "SnekRuntimeError(\"NotImplementedError('Sorry, cannot assign to 2 targets.')\")",
+    ),
     (
         "int.mro()",
         {},
-        "FeatureNotAvailable('Sorry, this method is not available. (type.mro)')",
+        "SnekRuntimeError(\"DangerousValue('Sorry, this method is not available. (type.mro)')\")",
     ),
     (repr("a" * 100001), {}, "ScopeTooLarge('Value is too large (100001 > 100000 )')"),
     (
@@ -303,48 +311,65 @@ EXCEPTION_CASES = [
     (
         "forbidden_func()[0]()",
         {"forbidden_func": lambda: [type]},
-        "FeatureNotAvailable('This function is forbidden')",
+        "SnekRuntimeError(\"DangerousValue('This function is forbidden: type')\")",
     ),
     (
         "a()([])",
         {"a": lambda: sorted},
-        "FeatureNotAvailable('This builtin function is not allowed: sorted')",
+        "SnekRuntimeError(\"NotImplementedError('This builtin function is not allowed: sorted')\")",
     ),
     ("a[1]", {"a": []}, "SnekLookupError('list index out of range')"),
     (
         "a.__length__",
         {"a": []},
-        "FeatureNotAvailable('Sorry, access to this attribute is not available. (__length__)')",
+        "SnekRuntimeError(\"NotImplementedError('Sorry, access to this attribute is not available. (__length__)')\")",
     ),
     (
         "'say{}'.format('hi') ",
         {},
-        "FeatureNotAvailable('Sorry, this method is not available. (str.format)')",
+        "SnekRuntimeError(\"DangerousValue('Sorry, this method is not available. (str.format)')\")",
     ),
     (
         "[a for a in [] if True if True]",
         {},
-        (
-            "FeatureNotAvailable('Sorry, only one `if` allowed in list comprehension, "
-            "consider booleans or a function')"
-        ),
+        "SnekRuntimeError(\"NotImplementedError('Sorry, only one `if` allowed in list comprehension, consider booleans or a function')\")",
     ),
     (
         "class A: 1",
         {},
-        "FeatureNotAvailable('Sorry, ClassDef is not available in this evaluator')",
+        "SnekRuntimeError(\"NotImplementedError('Sorry, ClassDef is not available in this evaluator')\")",
     ),
     (
         "a.b",
         {"a": object()},
         "SnekAttributeError(\"'object' object has no attribute 'b'\")",
     ),
-    ("'a' + 1", {}, "SnekTypeError('can only concatenate str (not \"int\") to str')"),
-    ("import non_existant", {}, "SnekImportError('non_existant')"),
-    ("from nowhere import non_existant", {}, "SnekImportError('non_existant')"),
-    ('assert False, "no"', {}, "SnekAssertionError('no')"),
-    ("del a,b,c", {}, "FeatureNotAvailable('Sorry, cannot delete 3 targets.')"),
-    ("del a.c", {}, "FeatureNotAvailable('Sorry, cannot delete Attribute')"),
+    (
+        "'a' + 1",
+        {},
+        "SnekRuntimeError('TypeError(\\'can only concatenate str (not \"int\") to str\\')')",
+    ),
+    (
+        "import non_existant",
+        {},
+        "SnekRuntimeError(\"ModuleNotFoundError('non_existant')\")",
+    ),
+    (
+        "from nowhere import non_existant",
+        {},
+        "SnekRuntimeError(\"ModuleNotFoundError('non_existant')\")",
+    ),
+    ('assert False, "no"', {}, "SnekRuntimeError(\"AssertionError('no')\")"),
+    (
+        "del a,b,c",
+        {},
+        "SnekRuntimeError(\"NotImplementedError('Sorry, cannot delete 3 targets.')\")",
+    ),
+    (
+        "del a.c",
+        {},
+        "SnekRuntimeError(\"NotImplementedError('Sorry, cannot delete Attribute')\")",
+    ),
     (
         "[1,2,3][[]]",
         {},
@@ -353,11 +378,15 @@ EXCEPTION_CASES = [
     (
         "1<<1",
         {},
-        "FeatureNotAvailable('Sorry, LShift is not available in this evaluator')",
+        "SnekRuntimeError(\"NotImplementedError('Sorry, LShift is not available in this evaluator')\")",
     ),
-    ("assert False", {}, "SnekAssertionError('')"),
-    ("assert False, 'oh no'", {}, "SnekAssertionError('oh no')"),
-    ("(a for a in a)", {}, "FeatureNotAvailable('Sorry, GeneratorExp is not available in this evaluator')")
+    ("assert False", {}, "SnekRuntimeError('AssertionError()')"),
+    ("assert False, 'oh no'", {}, "SnekRuntimeError(\"AssertionError('oh no')\")"),
+    (
+        "(a for a in a)",
+        {},
+        "SnekRuntimeError(\"NotImplementedError('Sorry, GeneratorExp is not available in this evaluator')\")",
+    ),
 ]
 
 
@@ -366,8 +395,11 @@ def test_exceptions():
     for i, (code, scope, ex_repr) in enumerate(EXCEPTION_CASES):
         try:
             out = snek_eval(code, scope=scope)
-        except Exception as exc:
-            assert repr(exc) == ex_repr, f"Failed {code} \nin CASE {i}"
+        except Exception as e:
+            exc = e
+            assert (
+                repr(exc) == ex_repr
+            ), f"{repr(repr(exc))}\nFailed {code} \nin CASE {i}"
             continue
         pytest.fail("{}\nneeded to raise: {}\nreturned: {}".format(code, ex_repr, out))
 
