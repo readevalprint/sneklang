@@ -244,7 +244,11 @@ result = [foo(i) for i in [-1,0,1, 'a']]
 
 EXCEPTION_CASES = [
     ("nope", {}, "SnekRuntimeError('NameError(\"\\'nope\\' is not defined\")')"),
-    ("a=1; a.b", {}, "SnekAttributeError(\"'int' object has no attribute 'b'\")"),
+    (
+        "a=1; a.b",
+        {},
+        "SnekRuntimeError('AttributeError(\"\\'int\\' object has no attribute \\'b\\'\")')",
+    ),
     ("1/0", {}, "SnekRuntimeError(\"ZeroDivisionError('division by zero')\")"),
     (
         "len(str(10000 ** 10001))",
@@ -296,16 +300,20 @@ EXCEPTION_CASES = [
         {},
         "SnekRuntimeError(\"DangerousValue('Sorry, this method is not available. (type.mro)')\")",
     ),
-    (repr("a" * 100001), {}, "ScopeTooLarge('Value is too large (100001 > 100000 )')"),
+    (
+        repr("a" * 100001),
+        {},
+        "SnekRuntimeError(\"MemoryError('Value is too large (100001 > 100000 )')\")",
+    ),
     (
         "b'" + ("a" * 100_001) + "'",
         {},
-        "ScopeTooLarge('Value is too large (100001 > 100000 )')",
+        "SnekRuntimeError(\"MemoryError('Value is too large (100001 > 100000 )')\")",
     ),
     (
         repr(list("a" * 100001)),
         {},
-        "IterableTooLong('List in statement is too long! (100001, when 100000 is max)')",
+        "SnekRuntimeError(\"MemoryError('List in statement is too long! (100001, when 100000 is max)')\")",
     ),
     ("1()", {}, "SnekRuntimeError('Sorry, int type is not callable')"),
     (
@@ -318,7 +326,7 @@ EXCEPTION_CASES = [
         {"a": lambda: sorted},
         "SnekRuntimeError(\"NotImplementedError('This builtin function is not allowed: sorted')\")",
     ),
-    ("a[1]", {"a": []}, "SnekLookupError('list index out of range')"),
+    ("a[1]", {"a": []}, "SnekRuntimeError(\"IndexError('list index out of range')\")"),
     (
         "a.__length__",
         {"a": []},
@@ -342,7 +350,7 @@ EXCEPTION_CASES = [
     (
         "a.b",
         {"a": object()},
-        "SnekAttributeError(\"'object' object has no attribute 'b'\")",
+        "SnekRuntimeError('AttributeError(\"\\'object\\' object has no attribute \\'b\\'\")')",
     ),
     (
         "'a' + 1",
@@ -373,7 +381,7 @@ EXCEPTION_CASES = [
     (
         "[1,2,3][[]]",
         {},
-        "SnekTypeError('list indices must be integers or slices, not list')",
+        "SnekRuntimeError(\"TypeError('list indices must be integers or slices, not list')\")",
     ),
     (
         "1<<1",
@@ -448,31 +456,35 @@ def test_call_stack():
     scope = {}
     snek_eval("def foo(x): return x, x > 0 and foo(x-1) or 0", scope=scope)
     scope["foo"](3)
-    with pytest.raises(CallTooDeep):
+    with pytest.raises(SnekRuntimeError) as excinfo:
         scope["foo"](50)
+    assert repr(excinfo.value) == 'SnekRuntimeError("RecursionError(\'Sorry, stack is to large. The MAX_CALL_DEPTH is 32.\')")'
 
     snek_eval(
         "def foo(x): return foo(x - 1) if x > 0 else 0",
         scope=scope,
         call_stack=30 * [1],
     )
-    with pytest.raises(CallTooDeep):
+    with pytest.raises(SnekRuntimeError) as excinfo:
         scope["foo"](3)
+    assert repr(excinfo.value) == 'SnekRuntimeError("RecursionError(\'Sorry, stack is to large. The MAX_CALL_DEPTH is 32.\')")'
 
 
 def test_settings():
     orig = sneklang.MAX_NODE_CALLS
-    with pytest.raises(sneklang.TooManyEvaluations):
+    with pytest.raises(SnekRuntimeError) as excinfo:
         scope = {}
         sneklang.MAX_NODE_CALLS = 20
         snek_eval("while True: 1", scope=scope)
+    assert repr(excinfo.value) == 'SnekRuntimeError("TimeoutError(\'This program has too many evaluations\')")'
     sneklang.MAX_NODE_CALLS = orig
 
     orig = sneklang.MAX_SCOPE_SIZE
-    with pytest.raises(sneklang.ScopeTooLarge):
+    with pytest.raises(SnekRuntimeError) as excinfo:
         scope = {}
         sneklang.MAX_SCOPE_SIZE = 500
         snek_eval("a=[]\nwhile True: a=[a, a]", scope=scope)
+    assert repr(excinfo.value) == 'SnekRuntimeError("MemoryError(\'Scope has used too much memory: 604 > 500\')")'
     sneklang.MAX_SCOPE_SIZE = orig
 
 
@@ -534,7 +546,7 @@ foo(1,b=2)"""
 
 
 def test_eval_joinedstr():
-    with pytest.raises(IterableTooLong):
+    with pytest.raises(SnekRuntimeError):
         sneklang.MAX_SCOPE_SIZE = 10000000
         snek_eval(
             """

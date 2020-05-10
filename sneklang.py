@@ -190,80 +190,76 @@ class SnekRuntimeError(Exception):
         return str(self.__context__)
 
 
-class SnekArithmeticError(SnekRuntimeError):
-    pass
+#class SnekArithmeticError(SnekRuntimeError):
+#    pass
 
 
-class SnekBufferError(SnekRuntimeError):
-    pass
+#class SnekBufferError(SnekRuntimeError):
+#    pass
 
 
-class SnekImportError(SnekRuntimeError):
-    pass
+#class SnekImportError(SnekRuntimeError):
+#    pass
 
 
-class SnekLookupError(SnekRuntimeError):
-    pass
+#class SnekLookupError(SnekRuntimeError):
+#    pass
 
 
-class SnekValueError(SnekRuntimeError):
-    pass
+#class SnekValueError(SnekRuntimeError):
+#    pass
 
 
-class SnekAttributeError(SnekRuntimeError):
-    pass
+#class SnekAttributeError(SnekRuntimeError):
+#    pass
 
 
-class SnekTypeError(SnekRuntimeError):
-    pass
+#class SnekTypeError(SnekRuntimeError):
+#    pass
 
 
-class SnekAssertionError(SnekRuntimeError):
-    pass
+#class SnekAssertionError(SnekRuntimeError):
+#    pass
 
 
-class NameNotDefined(SnekRuntimeError):
-    """ a name isn't defined. """
-
-    def __init__(self, node):
-        super(NameNotDefined, self).__init__(
-            "'{0}' is not defined".format(node.id), node
-        )
-
-
-class NumberTooHigh(SnekRuntimeError):
-    """ Sorry! That number is too high. I don't want to spend the
-        next 10 years evaluating this expression! """
-
-    pass
+#class NameNotDefined(SnekRuntimeError):
+#    """ a name isn't defined. """
+#
+#    def __init__(self, node):
+#        super(NameNotDefined, self).__init__(
+#            "'{0}' is not defined".format(node.id), node
+#        )
 
 
-class CallTooDeep(SnekRuntimeError):
-    pass
+#class NumberTooHigh(SnekRuntimeError):
+#    """ Sorry! That number is too high. I don't want to spend the
+#        next 10 years evaluating this expression! """
+#
+ #   pass
 
 
-class IterableTooLong(SnekRuntimeError):
-    """ That iterable is **way** too long, baby. """
-
-    pass
+#class CallTooDeep(SnekRuntimeError):
+#    pass
 
 
-class ScopeTooLarge(SnekRuntimeError):
-    """ The scope has take too many bytes """
+#class IterableTooLong(SnekRuntimeError):
+#    """ That iterable is **way** too long, baby. """
 
-    pass
-
-
-class ScopeTooComplex(SnekRuntimeError):
-    """ The scope has too many nodes """
-
-    pass
+#    pass
 
 
-class TooManyEvaluations(SnekRuntimeError):
-    """ The evaluator has evaluated too may nodes """
+#class ScopeTooLarge(SnekRuntimeError):
+#    """ The scope has take too many bytes """
+#
+#    pass
 
-    pass
+
+#class ScopeTooComplex(SnekRuntimeError):
+#    """ The scope has too many nodes """
+
+#    pass
+
+
 
 
 ########################################
@@ -547,11 +543,11 @@ class SnekEval(object):
     def _eval(self, node):
         """ The internal evaluator used on each node in the parsed tree. """
 
-        self.track(node)
-        lineno = getattr(node, "lineno", None)  # noqa: F841
-        col = getattr(node, "col", None)  # noqa: F841
-
         try:
+            self.track(node)
+            lineno = getattr(node, "lineno", None)  # noqa: F841
+            col = getattr(node, "col", None)  # noqa: F841
+
             try:
                 handler = self.nodes[type(node)]
             except KeyError:
@@ -562,7 +558,9 @@ class SnekEval(object):
                 )
             node.call_stack = self.call_stack
             self._last_eval_result = handler(node)
-        except (Return, Break, CallTooDeep, SnekRuntimeError):
+            self.track(node)
+            return self._last_eval_result
+        except (Return, Break, SnekRuntimeError):
             raise
         except Exception as e:
             exc = e
@@ -575,8 +573,6 @@ class SnekEval(object):
 
             raise SnekRuntimeError(msg=repr(exc), node=node) from exc
 
-        self.track(node)
-        return self._last_eval_result
         # except (ArithmeticError) as exc:
         #     raise SnekArithmeticError(str(exc), node)
         # except ValueError as exc:
@@ -788,7 +784,7 @@ class SnekEval(object):
     @staticmethod
     def _eval_constant(node):
         if len(repr(node.s)) > MAX_STRING_LENGTH:
-            raise ScopeTooLarge(
+            raise MemoryError(
                 "Value is too large ({0} > {1} )".format(
                     len(node.s), MAX_STRING_LENGTH
                 ),
@@ -803,7 +799,7 @@ class SnekEval(object):
     @staticmethod
     def _eval_bytes(node):
         if len(node.s) > MAX_STRING_LENGTH:
-            raise IterableTooLong(
+            raise MemoryError(
                 "Byte Literal in statement is too long!"
                 " ({0}, when {1} is max)".format(len(node.s), MAX_STRING_LENGTH),
                 node,
@@ -813,7 +809,7 @@ class SnekEval(object):
     @staticmethod
     def _eval_str(node):
         if len(node.s) > MAX_STRING_LENGTH:
-            raise IterableTooLong(
+            raise MemoryError(
                 "String Literal in statement is too long!"
                 " ({0}, when {1} is max)".format(len(node.s), MAX_STRING_LENGTH),
                 node,
@@ -918,7 +914,7 @@ class SnekEval(object):
 
     def _eval_call(self, node):
         if len(self.call_stack) >= MAX_CALL_DEPTH:
-            raise CallTooDeep(
+            raise RecursionError(
                 "Sorry, stack is to large. The MAX_CALL_DEPTH is {}.".format(
                     MAX_CALL_DEPTH
                 ),
@@ -965,10 +961,10 @@ class SnekEval(object):
             f = partial(f, **kwargs)
 
         self.call_stack.append([node, self.expr])
-        try:
-            ret = f()
-        except CallTooDeep:
-            raise
+        #try:
+        ret = f()
+        #except RecursionError:
+        #    raise
         # except SnekRuntimeError:
         #    raise
         # except Exception as e:
@@ -994,12 +990,12 @@ class SnekEval(object):
     def _eval_subscript(self, node):
         container = self._eval(node.value)
         key = self._eval(node.slice)
-        try:
-            return container[key]
-        except TypeError as e:
-            raise SnekTypeError(str(e), node)
-        except (LookupError) as exc:
-            raise SnekLookupError(str(exc), node)
+        #try:
+        return container[key]
+        #except TypeError as e:
+        #    raise SnekTypeError(str(e), node)
+        #except (LookupError) as exc:
+        #    raise SnekLookupError(str(exc), node)
 
     def _eval_attribute(self, node):
         for prefix in DISALLOW_PREFIXES:
@@ -1018,10 +1014,10 @@ class SnekEval(object):
                 "({0}.{1})".format(node_evaluated.__class__.__name__, node.attr),
                 node,
             )
-        try:
-            return getattr(node_evaluated, node.attr)
-        except AttributeError as e:
-            raise SnekAttributeError(str(e), node)
+        #try:
+        return getattr(node_evaluated, node.attr)
+        #except AttributeError as e:
+        #    raise SnekAttributeError(str(e), node)
 
     def _eval_index(self, node):
         return self._eval(node.value)
@@ -1042,7 +1038,7 @@ class SnekEval(object):
         for n in node.values:
             val = str(self._eval(n))
             if len(val) + length > MAX_STRING_LENGTH:
-                raise IterableTooLong(
+                raise MemoryError(
                     "Sorry, I will not evaluate something this long.", node
                 )
             length += len(val)
@@ -1083,7 +1079,7 @@ class SnekEval(object):
 
     def _eval_dict(self, node):
         if len(node.keys) > MAX_STRING_LENGTH:
-            raise IterableTooLong(
+            raise MemoryError(
                 "Dict in statement is too long!"
                 " ({0}, when {1} is max)".format(len(node.keys), MAX_STRING_LENGTH),
                 node,
@@ -1092,7 +1088,7 @@ class SnekEval(object):
 
     def _eval_tuple(self, node):
         if len(node.elts) > MAX_STRING_LENGTH:
-            raise IterableTooLong(
+            raise MemoryError(
                 "Tuple in statement is too long!"
                 " ({0}, when {1} is max)".format(len(node.elts), MAX_STRING_LENGTH),
                 node,
@@ -1101,7 +1097,7 @@ class SnekEval(object):
 
     def _eval_list(self, node):
         if len(node.elts) > MAX_STRING_LENGTH:
-            raise IterableTooLong(
+            raise MemoryError(
                 "List in statement is too long!"
                 " ({0}, when {1} is max)".format(len(node.elts), MAX_STRING_LENGTH),
                 node,
@@ -1117,10 +1113,10 @@ class SnekEval(object):
 
         self.nodes_called += 1
         if self.nodes_called > MAX_NODE_CALLS:
-            raise TooManyEvaluations("This program has too many evaluations", node)
+            raise TimeoutError("This program has too many evaluations", node)
         size = len(repr(self.scope)) + len(repr(self._last_eval_result))
         if size > MAX_SCOPE_SIZE:
-            raise ScopeTooLarge(
+            raise MemoryError(
                 f"Scope has used too much memory: { size } > {MAX_SCOPE_SIZE}", node
             )
 
