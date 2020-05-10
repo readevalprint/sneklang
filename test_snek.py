@@ -340,7 +340,8 @@ EXCEPTION_CASES = [
     (
         "[a for a in [] if True if True]",
         {},
-        "SnekRuntimeError(\"NotImplementedError('Sorry, only one `if` allowed in list comprehension, consider booleans or a function')\")",
+        ("SnekRuntimeError(\"NotImplementedError('Sorry, only one `if` allowed in list comprehension"
+            ", consider booleans or a function')\")"),
     ),
     (
         "class A: 1",
@@ -458,7 +459,10 @@ def test_call_stack():
     scope["foo"](3)
     with pytest.raises(SnekRuntimeError) as excinfo:
         scope["foo"](50)
-    assert repr(excinfo.value) == 'SnekRuntimeError("RecursionError(\'Sorry, stack is to large. The MAX_CALL_DEPTH is 32.\')")'
+    assert (
+        repr(excinfo.value)
+        == "SnekRuntimeError(\"RecursionError('Sorry, stack is to large. The MAX_CALL_DEPTH is 32.')\")"
+    )
 
     snek_eval(
         "def foo(x): return foo(x - 1) if x > 0 else 0",
@@ -467,7 +471,10 @@ def test_call_stack():
     )
     with pytest.raises(SnekRuntimeError) as excinfo:
         scope["foo"](3)
-    assert repr(excinfo.value) == 'SnekRuntimeError("RecursionError(\'Sorry, stack is to large. The MAX_CALL_DEPTH is 32.\')")'
+    assert (
+        repr(excinfo.value)
+        == "SnekRuntimeError(\"RecursionError('Sorry, stack is to large. The MAX_CALL_DEPTH is 32.')\")"
+    )
 
 
 def test_settings():
@@ -476,7 +483,10 @@ def test_settings():
         scope = {}
         sneklang.MAX_NODE_CALLS = 20
         snek_eval("while True: 1", scope=scope)
-    assert repr(excinfo.value) == 'SnekRuntimeError("TimeoutError(\'This program has too many evaluations\')")'
+    assert (
+        repr(excinfo.value)
+        == "SnekRuntimeError(\"TimeoutError('This program has too many evaluations')\")"
+    )
     sneklang.MAX_NODE_CALLS = orig
 
     orig = sneklang.MAX_SCOPE_SIZE
@@ -484,7 +494,10 @@ def test_settings():
         scope = {}
         sneklang.MAX_SCOPE_SIZE = 500
         snek_eval("a=[]\nwhile True: a=[a, a]", scope=scope)
-    assert repr(excinfo.value) == 'SnekRuntimeError("MemoryError(\'Scope has used too much memory: 604 > 500\')")'
+    assert (
+        repr(excinfo.value)
+        == "SnekRuntimeError(\"MemoryError('Scope has used too much memory: 604 > 500')\")"
+    )
     sneklang.MAX_SCOPE_SIZE = orig
 
 

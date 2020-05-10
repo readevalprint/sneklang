@@ -70,7 +70,7 @@ repo.
 ...   bar()
 ... bar()
 ... ''')
-... except CallTooDeep as e:  # Snek error
+... except SnekRuntimeError as e:  # Snek error
 ...   print(e)
 ... except RecursionError as e:  # uncaught, this would hit a python error.
 ...  print("Oh no! The current recursion limit is too low for ths function: %s" % format(sys.getrecursionlimit()))
@@ -190,39 +190,39 @@ class SnekRuntimeError(Exception):
         return str(self.__context__)
 
 
-#class SnekArithmeticError(SnekRuntimeError):
+# class SnekArithmeticError(SnekRuntimeError):
 #    pass
 
 
-#class SnekBufferError(SnekRuntimeError):
+# class SnekBufferError(SnekRuntimeError):
 #    pass
 
 
-#class SnekImportError(SnekRuntimeError):
+# class SnekImportError(SnekRuntimeError):
 #    pass
 
 
-#class SnekLookupError(SnekRuntimeError):
+# class SnekLookupError(SnekRuntimeError):
 #    pass
 
 
-#class SnekValueError(SnekRuntimeError):
+# class SnekValueError(SnekRuntimeError):
 #    pass
 
 
-#class SnekAttributeError(SnekRuntimeError):
+# class SnekAttributeError(SnekRuntimeError):
 #    pass
 
 
-#class SnekTypeError(SnekRuntimeError):
+# class SnekTypeError(SnekRuntimeError):
 #    pass
 
 
-#class SnekAssertionError(SnekRuntimeError):
+# class SnekAssertionError(SnekRuntimeError):
 #    pass
 
 
-#class NameNotDefined(SnekRuntimeError):
+# class NameNotDefined(SnekRuntimeError):
 #    """ a name isn't defined. """
 #
 #    def __init__(self, node):
@@ -231,35 +231,33 @@ class SnekRuntimeError(Exception):
 #        )
 
 
-#class NumberTooHigh(SnekRuntimeError):
+# class NumberTooHigh(SnekRuntimeError):
 #    """ Sorry! That number is too high. I don't want to spend the
 #        next 10 years evaluating this expression! """
 #
- #   pass
+#   pass
 
 
-#class CallTooDeep(SnekRuntimeError):
+# class CallTooDeep(SnekRuntimeError):
 #    pass
 
 
-#class IterableTooLong(SnekRuntimeError):
+# class IterableTooLong(SnekRuntimeError):
 #    """ That iterable is **way** too long, baby. """
 
 #    pass
 
 
-#class ScopeTooLarge(SnekRuntimeError):
+# class ScopeTooLarge(SnekRuntimeError):
 #    """ The scope has take too many bytes """
 #
 #    pass
 
 
-#class ScopeTooComplex(SnekRuntimeError):
+# class ScopeTooComplex(SnekRuntimeError):
 #    """ The scope has too many nodes """
 
 #    pass
-
-
 
 
 ########################################
@@ -961,9 +959,9 @@ class SnekEval(object):
             f = partial(f, **kwargs)
 
         self.call_stack.append([node, self.expr])
-        #try:
+        # try:
         ret = f()
-        #except RecursionError:
+        # except RecursionError:
         #    raise
         # except SnekRuntimeError:
         #    raise
@@ -990,11 +988,11 @@ class SnekEval(object):
     def _eval_subscript(self, node):
         container = self._eval(node.value)
         key = self._eval(node.slice)
-        #try:
+        # try:
         return container[key]
-        #except TypeError as e:
+        # except TypeError as e:
         #    raise SnekTypeError(str(e), node)
-        #except (LookupError) as exc:
+        # except (LookupError) as exc:
         #    raise SnekLookupError(str(exc), node)
 
     def _eval_attribute(self, node):
@@ -1014,9 +1012,9 @@ class SnekEval(object):
                 "({0}.{1})".format(node_evaluated.__class__.__name__, node.attr),
                 node,
             )
-        #try:
+        # try:
         return getattr(node_evaluated, node.attr)
-        #except AttributeError as e:
+        # except AttributeError as e:
         #    raise SnekAttributeError(str(e), node)
 
     def _eval_index(self, node):

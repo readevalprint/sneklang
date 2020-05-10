@@ -175,7 +175,7 @@ You can also delete variables and catch exception
     >>> user_scope['caught_exception'].__context__
     Exception('Bad math')
     >>> user_scope['caught_exception'].__context__.__context__
-    SnekArithmeticError('division by zero')
+    SnekRuntimeError("ZeroDivisionError('division by zero')")
 
 
 And sometimes, users write crappy code... `MAX_CALL_DEPTH` is configurable, of course.
@@ -183,7 +183,7 @@ Here you can see some extreamly ineffecient code to multiply a number by 2
 
 .. code-block:: python
 
-    >>> from sneklang import InvalidExpression, CallTooDeep, SnekRuntimeError
+    >>> from sneklang import SnekRuntimeError
     >>> user_scope = {}
     >>> out = snek_eval('''
     ... def multiply_by_2(x): 
@@ -195,7 +195,7 @@ Here you can see some extreamly ineffecient code to multiply a number by 2
     10
     >>> try:
     ...     multiply_by_2(50)
-    ... except CallTooDeep as e:
+    ... except SnekRuntimeError as e:
     ...     print(f'oh no! "{e}" On line:{e.lineno} col:{e.col}')
     oh no! "Sorry, stack is to large. The MAX_CALL_DEPTH is 32." On line:3 col:15
 
@@ -205,7 +205,7 @@ Here you can see some extreamly ineffecient code to multiply a number by 2
     ...     snek_eval("int('foo is not a number')")
     ... except SnekRuntimeError as e:
     ...     print('oh no! {}'.format(e))
-    oh no! ValueError("invalid literal for int() with base 10: 'foo is not a number'")
+    oh no! invalid literal for int() with base 10: 'foo is not a number'
 
 
 
