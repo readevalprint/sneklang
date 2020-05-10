@@ -346,7 +346,7 @@ DEFAULT_SCOPE = {
     "all": all,
     "round": round,
     "isinstance": isinstance,
-    "Exception": SnekRuntimeError,
+    "Exception": Exception,
     "enumerate": enumerate,
     "isinstance": isinstance,
     "issubclass": issubclass,
@@ -878,7 +878,7 @@ class SnekEval(object):
 
     def _eval_excepthandler(self, node):
         _type, exc, traceback = sys.exc_info()
-        if (node.type is None) or isinstance(exc, self._eval(node.type)):
+        if (node.type is None) or isinstance(exc.__context__, self._eval(node.type)):
             if node.name:
                 self.scope[node.name] = exc
             [self._eval(b) for b in node.body]
@@ -939,7 +939,8 @@ class SnekEval(object):
         except CallTooDeep:
             raise
         except Exception as e:
-            raise SnekRuntimeError(msg=repr(e), node=node)
+            exc = e
+            raise SnekRuntimeError(msg=repr(exc), node=node) from exc
         self.call_stack.pop()
         return ret
 

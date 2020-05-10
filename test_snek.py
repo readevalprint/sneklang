@@ -227,10 +227,10 @@ def foo(a):
     try:
         try:
             res = res + str(1/a)
-        except (ArithmeticError) as e:
+        except ArithmeticError as e:
             res= res + 'ArithmeticError'
-    except:
-        return 'oops'
+    except Exception as e2:
+        return 'oops' + str(e2)
     else:
         res = res + 'else'
     finally:
@@ -238,7 +238,7 @@ def foo(a):
     return a, res
 result = [foo(i) for i in [-1,0,1, 'a']]
 """,
-        snek_scope={"Exception": Exception, "ArithmeticError": SnekArithmeticError},
+        snek_scope={"Exception": Exception, "ArithmeticError": ArithmeticError},
     )
 
 
