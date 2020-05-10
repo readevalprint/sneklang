@@ -190,76 +190,6 @@ class SnekRuntimeError(Exception):
         return str(self.__context__)
 
 
-# class SnekArithmeticError(SnekRuntimeError):
-#    pass
-
-
-# class SnekBufferError(SnekRuntimeError):
-#    pass
-
-
-# class SnekImportError(SnekRuntimeError):
-#    pass
-
-
-# class SnekLookupError(SnekRuntimeError):
-#    pass
-
-
-# class SnekValueError(SnekRuntimeError):
-#    pass
-
-
-# class SnekAttributeError(SnekRuntimeError):
-#    pass
-
-
-# class SnekTypeError(SnekRuntimeError):
-#    pass
-
-
-# class SnekAssertionError(SnekRuntimeError):
-#    pass
-
-
-# class NameNotDefined(SnekRuntimeError):
-#    """ a name isn't defined. """
-#
-#    def __init__(self, node):
-#        super(NameNotDefined, self).__init__(
-#            "'{0}' is not defined".format(node.id), node
-#        )
-
-
-# class NumberTooHigh(SnekRuntimeError):
-#    """ Sorry! That number is too high. I don't want to spend the
-#        next 10 years evaluating this expression! """
-#
-#   pass
-
-
-# class CallTooDeep(SnekRuntimeError):
-#    pass
-
-
-# class IterableTooLong(SnekRuntimeError):
-#    """ That iterable is **way** too long, baby. """
-
-#    pass
-
-
-# class ScopeTooLarge(SnekRuntimeError):
-#    """ The scope has take too many bytes """
-#
-#    pass
-
-
-# class ScopeTooComplex(SnekRuntimeError):
-#    """ The scope has too many nodes """
-
-#    pass
-
-
 ########################################
 # Default simple functions to include:
 
@@ -304,21 +234,6 @@ def safe_add(a, b):  # pylint: disable=invalid-name
 # Defaults for the evaluator:
 
 
-# def get_safe_exec(snek):
-#    def safe_exec(expr, scope):
-#        snek_eval(expr, scope, snek.call_stack)
-#
-#    return safe_exec
-
-
-# class SnekDeferred:
-#    def __init__(self, func):
-#        self.func = func
-#
-#    def __call__(self, snek):
-#        return self.func(snek)
-
-
 DEFAULT_SCOPE = {
     "True": True,
     "False": False,
@@ -332,7 +247,6 @@ DEFAULT_SCOPE = {
     "set": set,
     "len": len,
     # "no one man should have all this power"
-    # "exec": SnekDeferred(get_safe_exec),
     "min": min,
     "max": max,
     "any": any,
@@ -570,16 +484,6 @@ class SnekEval(object):
             exc.args = tuple(a for a in exc.args if (not isinstance(a, ast.AST)))
 
             raise SnekRuntimeError(msg=repr(exc), node=node) from exc
-
-        # except (ArithmeticError) as exc:
-        #     raise SnekArithmeticError(str(exc), node)
-        # except ValueError as exc:
-        #     raise SnekValueError(str(exc), node)
-        # except TypeError as e:
-        #     raise SnekTypeError(str(e), node)
-        # exec is special and requires the current stack
-        # if scope.get('exec', None) is PlaceHolder:
-        #    scope['exec'] = get_safe_exec(self.call_stack)
 
     def _eval_assert(self, node):
         if not self._eval(node.test):
@@ -826,13 +730,6 @@ class SnekEval(object):
             return self.operators[type(node.op)](
                 self._eval(node.left), self._eval(node.right)
             )
-        # except ValueError as exc:  # pragma: no cover
-        #    # Is this possible?
-        #    raise SnekValueError(str(exc), node)
-        # except TypeError as e:
-        #    raise SnekTypeError(str(e), node)
-        # except ArithmeticError as exc:
-        #    raise SnekArithmeticError(str(exc), node)
         except KeyError:
             raise NotImplementedError(
                 "Sorry, {0} is not available in this "
@@ -944,10 +841,6 @@ class SnekEval(object):
             )
         kwarg_kwargs = [self._eval(k) for k in node.keywords]
 
-        # some functions need the current context
-        # if type(func) is SnekDeferred:
-        #    func = func(self)
-
         f = func
         for a in node.args:
             if a.__class__ == ast.Starred:
@@ -959,15 +852,7 @@ class SnekEval(object):
             f = partial(f, **kwargs)
 
         self.call_stack.append([node, self.expr])
-        # try:
         ret = f()
-        # except RecursionError:
-        #    raise
-        # except SnekRuntimeError:
-        #    raise
-        # except Exception as e:
-        #    exc = e
-        #    raise SnekRuntimeError(msg=repr(exc), node=node) from exc
         self.call_stack.pop()
         return ret
 
@@ -988,12 +873,7 @@ class SnekEval(object):
     def _eval_subscript(self, node):
         container = self._eval(node.value)
         key = self._eval(node.slice)
-        # try:
         return container[key]
-        # except TypeError as e:
-        #    raise SnekTypeError(str(e), node)
-        # except (LookupError) as exc:
-        #    raise SnekLookupError(str(exc), node)
 
     def _eval_attribute(self, node):
         for prefix in DISALLOW_PREFIXES:
@@ -1012,10 +892,7 @@ class SnekEval(object):
                 "({0}.{1})".format(node_evaluated.__class__.__name__, node.attr),
                 node,
             )
-        # try:
         return getattr(node_evaluated, node.attr)
-        # except AttributeError as e:
-        #    raise SnekAttributeError(str(e), node)
 
     def _eval_index(self, node):
         return self._eval(node.value)
