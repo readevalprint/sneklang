@@ -174,20 +174,15 @@ class DangerousValue(Exception):
 class SnekRuntimeError(Exception):
     """Something caused the Snek code to crash"""
 
+    col = None
+    lineno = None
+
     def __init__(self, msg, node=None):
         self.__node = node
+        if node:
+            self.col = getattr(self.__node, "col_offset", None)
+            self.lineno = getattr(self.__node, "lineno", None)
         super().__init__(msg)
-
-    @property
-    def lineno(self):
-        return getattr(self.__node, "lineno", None)
-
-    @property
-    def col(self):
-        return getattr(self.__node, "col_offset", None)
-
-    def __str__(self):
-        return str(self.__context__)
 
 
 ########################################
@@ -422,32 +417,27 @@ class SnekEval(object):
         )
         for node in ast.walk(tree):
             if node.__class__ not in valid_nodes:
-                raise NotImplementedError(
-                    f"Sorry, {node.__class__.__name__} is not available in this evaluator",
-                    node,
+                exc = NotImplementedError(
+                    f"Sorry, {node.__class__.__name__} is not available in this evaluator"
                 )
+                exc._snek_node = node
+                raise exc
         compile(expr, "<string>", "exec", dont_inherit=True)
 
     def eval(self, expr):
         """ evaluate an expresssion, using the operators, functions and
             scope previously set up. """
 
-        try:
-            self.validate(expr)
-        except Exception as e:
-            # TODO: de duplicate this?
-            exc = e
-            for a in exc.args:
-                if isinstance(a, ast.AST):
-                    # use snke node in exception args if supplied
-                    node = a
-            # remove the snek node from args and use original exception os context
-            exc.args = tuple(a for a in exc.args if (not isinstance(a, ast.AST)))
-
-            raise SnekRuntimeError(msg=repr(exc), node=node) from exc
-
         # set a copy of the expression aside, so we can give nice errors...
         self.expr = expr
+        try:
+            self.validate(expr)
+        except (Exception,) as e:
+            exc = e
+            node = None
+            if hasattr(exc, "_snek_node"):
+                node = exc._snek_node
+            raise SnekRuntimeError(repr(exc), node=node) from exc
 
         # and evaluate:
         return self._eval(ast.parse(expr))
@@ -465,8 +455,7 @@ class SnekEval(object):
             except KeyError:
                 raise NotImplementedError(
                     "Sorry, {0} is not available in this "
-                    "evaluator".format(type(node).__name__),
-                    node,
+                    "evaluator".format(type(node).__name__)
                 )
             node.call_stack = self.call_stack
             self._last_eval_result = handler(node)
@@ -476,14 +465,9 @@ class SnekEval(object):
             raise
         except Exception as e:
             exc = e
-            for a in exc.args:
-                if isinstance(a, ast.AST):
-                    # use snke node in exception args if supplied
-                    node = a
-            # remove the snek node from args and use original exception os context
-            exc.args = tuple(a for a in exc.args if (not isinstance(a, ast.AST)))
-
-            raise SnekRuntimeError(msg=repr(exc), node=node) from exc
+            if not hasattr(exc, "_snek_node"):
+                exc._snek_node = node
+            raise SnekRuntimeError(repr(exc), node=node) from exc
 
     def _eval_assert(self, node):
         if not self._eval(node.test):
@@ -556,10 +540,13 @@ class SnekEval(object):
     def _eval_arguments(self, node):
 
         if node.vararg:
-            raise NotImplementedError("Sorry, VarArgs are not available", node.vararg)
+            exc = NotImplementedError("Sorry, VarArgs are not available")
+            raise exc
 
         if node.kwarg:
-            raise NotImplementedError("Sorry, VarKwargs are not available", node.kwarg)
+            exc = NotImplementedError("Sorry, VarKwargs are not available")
+            raise exc
+
         NONEXISTANT_DEFAULT = object()  # a unique object to contrast with None
         args_and_defaults = []
         for (arg, default) in itertools.zip_longest(
@@ -636,7 +623,7 @@ class SnekEval(object):
     def _delete(self, targets):
         if len(targets) > 1:
             raise NotImplementedError(
-                "Sorry, cannot delete {} targets.".format(len(targets)), targets[0]
+                "Sorry, cannot delete {} targets.".format(len(targets))
             )
         target = targets[0]
         try:
@@ -644,7 +631,7 @@ class SnekEval(object):
             handler(target)
         except KeyError:
             raise NotImplementedError(
-                "Sorry, cannot delete {}".format(type(target).__name__), target
+                "Sorry, cannot delete {}".format(type(target).__name__)
             )
 
     def _delete_name(self, node):
@@ -668,7 +655,7 @@ class SnekEval(object):
     def _assign(self, targets, value):
         if len(targets) > 1:
             raise NotImplementedError(
-                "Sorry, cannot assign to {} targets.".format(len(targets)), targets[0]
+                "Sorry, cannot assign to {} targets.".format(len(targets))
             )
         target = targets[0]
         try:
@@ -676,7 +663,7 @@ class SnekEval(object):
             handler(target, value)
         except KeyError:
             raise NotImplementedError(
-                "Sorry, cannot assign to {}".format(type(target).__name__), target
+                "Sorry, cannot assign to {}".format(type(target).__name__)
             )
 
     def _eval_assign(self, node):
@@ -687,10 +674,7 @@ class SnekEval(object):
     def _eval_constant(node):
         if len(repr(node.s)) > MAX_STRING_LENGTH:
             raise MemoryError(
-                "Value is too large ({0} > {1} )".format(
-                    len(node.s), MAX_STRING_LENGTH
-                ),
-                node,
+                "Value is too large ({0} > {1} )".format(len(node.s), MAX_STRING_LENGTH)
             )
         return node.value
 
@@ -703,8 +687,7 @@ class SnekEval(object):
         if len(node.s) > MAX_STRING_LENGTH:
             raise MemoryError(
                 "Byte Literal in statement is too long!"
-                " ({0}, when {1} is max)".format(len(node.s), MAX_STRING_LENGTH),
-                node,
+                " ({0}, when {1} is max)".format(len(node.s), MAX_STRING_LENGTH)
             )
         return node.s
 
@@ -713,8 +696,7 @@ class SnekEval(object):
         if len(node.s) > MAX_STRING_LENGTH:
             raise MemoryError(
                 "String Literal in statement is too long!"
-                " ({0}, when {1} is max)".format(len(node.s), MAX_STRING_LENGTH),
-                node,
+                " ({0}, when {1} is max)".format(len(node.s), MAX_STRING_LENGTH)
             )
         return node.s
 
@@ -733,8 +715,7 @@ class SnekEval(object):
         except KeyError:
             raise NotImplementedError(
                 "Sorry, {0} is not available in this "
-                "evaluator".format(type(node.op).__name__),
-                node,
+                "evaluator".format(type(node.op).__name__)
             )
 
     def _eval_boolop(self, node):
@@ -755,8 +736,7 @@ class SnekEval(object):
             # This should never happen as there are only two bool operators And and Or
             raise NotImplementedError(
                 "Sorry, {0} is not available in this "
-                "evaluator".format(type(node).__name__),
-                node,
+                "evaluator".format(type(node).__name__)
             )
 
     def _eval_compare(self, node):
@@ -800,7 +780,14 @@ class SnekEval(object):
 
     def _eval_excepthandler(self, node):
         _type, exc, traceback = sys.exc_info()
-        if (node.type is None) or isinstance(exc.__context__, self._eval(node.type)):
+        if (
+            (node.type is None)
+            or isinstance(exc, self._eval(node.type))
+            or (
+                isinstance(exc, SnekRuntimeError)
+                and isinstance(exc.__context__, self._eval(node.type))
+            )
+        ):
             if node.name:
                 self.scope[node.name] = exc
             [self._eval(b) for b in node.body]
@@ -812,13 +799,12 @@ class SnekEval(object):
             raise RecursionError(
                 "Sorry, stack is to large. The MAX_CALL_DEPTH is {}.".format(
                     MAX_CALL_DEPTH
-                ),
-                node,
+                )
             )
         func = self._eval(node.func)
         if not callable(func):
-            raise SnekRuntimeError(
-                "Sorry, {} type is not callable".format(type(func).__name__), node
+            raise TypeError(
+                "Sorry, {} type is not callable".format(type(func).__name__)
             )
         qualname = getattr(func, "__qualname__", None)
         func_hash = None
@@ -827,17 +813,17 @@ class SnekEval(object):
         except TypeError:
             if qualname not in WHITLIST_ATTRIBUTES:
                 raise NotImplementedError(
-                    "this function is not allowed: {}".format(qualname), node
+                    "this function is not allowed: {}".format(qualname)
                 )
         if func_hash and func in DISALLOW_FUNCTIONS:
-            raise DangerousValue(f"This function is forbidden: {qualname}", node)
+            raise DangerousValue(f"This function is forbidden: {qualname}")
         if (
             func_hash
             and isinstance(func, types.BuiltinFunctionType)
             and qualname not in ALLOWED_BUILTINS
         ):
             raise NotImplementedError(
-                f"This builtin function is not allowed: {qualname}", node
+                f"This builtin function is not allowed: {qualname}"
             )
         kwarg_kwargs = [self._eval(k) for k in node.keywords]
 
@@ -881,16 +867,14 @@ class SnekEval(object):
                 raise NotImplementedError(
                     "Sorry, access to this attribute "
                     "is not available. "
-                    "({0})".format(node.attr),
-                    node,
+                    "({0})".format(node.attr)
                 )
         # eval node
         node_evaluated = self._eval(node.value)
         if (type(node_evaluated), node.attr) in DISALLOW_METHODS:
             raise DangerousValue(
                 "Sorry, this method is not available. "
-                "({0}.{1})".format(node_evaluated.__class__.__name__, node.attr),
-                node,
+                "({0}.{1})".format(node_evaluated.__class__.__name__, node.attr)
             )
         return getattr(node_evaluated, node.attr)
 
@@ -913,9 +897,7 @@ class SnekEval(object):
         for n in node.values:
             val = str(self._eval(n))
             if len(val) + length > MAX_STRING_LENGTH:
-                raise MemoryError(
-                    "Sorry, I will not evaluate something this long.", node
-                )
+                raise MemoryError("Sorry, I will not evaluate something this long.")
             length += len(val)
             evaluated_values.append(val)
         return "".join(evaluated_values)
@@ -939,14 +921,10 @@ class SnekEval(object):
                     *match.group(2, 3, 4, 5, 6, 7, 8, 10, 11, 12)
                 )  # skip groups not interested in
                 if int(parsed_spec.width or 0) > 100:
-                    raise SnekRuntimeError(
-                        "Sorry, this format width is too long.", node.format_spec
-                    )
+                    raise MemoryError("Sorry, this format width is too long.")
 
                 if int(parsed_spec.precision or 0) > 100:
-                    raise SnekRuntimeError(
-                        "Sorry, this format precision is too long.", node.format_spec
-                    )
+                    raise MemoryError("Sorry, this format precision is too long.")
 
             fmt = "{:" + format_spec + "}"
             return fmt.format(self._eval(node.value))
@@ -956,8 +934,7 @@ class SnekEval(object):
         if len(node.keys) > MAX_STRING_LENGTH:
             raise MemoryError(
                 "Dict in statement is too long!"
-                " ({0}, when {1} is max)".format(len(node.keys), MAX_STRING_LENGTH),
-                node,
+                " ({0}, when {1} is max)".format(len(node.keys), MAX_STRING_LENGTH)
             )
         return {self._eval(k): self._eval(v) for (k, v) in zip(node.keys, node.values)}
 
@@ -965,8 +942,7 @@ class SnekEval(object):
         if len(node.elts) > MAX_STRING_LENGTH:
             raise MemoryError(
                 "Tuple in statement is too long!"
-                " ({0}, when {1} is max)".format(len(node.elts), MAX_STRING_LENGTH),
-                node,
+                " ({0}, when {1} is max)".format(len(node.elts), MAX_STRING_LENGTH)
             )
         return tuple(self._eval(x) for x in node.elts)
 
@@ -974,8 +950,7 @@ class SnekEval(object):
         if len(node.elts) > MAX_STRING_LENGTH:
             raise MemoryError(
                 "List in statement is too long!"
-                " ({0}, when {1} is max)".format(len(node.elts), MAX_STRING_LENGTH),
-                node,
+                " ({0}, when {1} is max)".format(len(node.elts), MAX_STRING_LENGTH)
             )
         return list(self._eval(x) for x in node.elts)
 
@@ -988,11 +963,11 @@ class SnekEval(object):
 
         self.nodes_called += 1
         if self.nodes_called > MAX_NODE_CALLS:
-            raise TimeoutError("This program has too many evaluations", node)
+            raise TimeoutError("This program has too many evaluations")
         size = len(repr(self.scope)) + len(repr(self._last_eval_result))
         if size > MAX_SCOPE_SIZE:
             raise MemoryError(
-                f"Scope has used too much memory: { size } > {MAX_SCOPE_SIZE}", node
+                f"Scope has used too much memory: { size } > {MAX_SCOPE_SIZE}"
             )
 
     def _eval_comprehension(self, node):
@@ -1036,8 +1011,7 @@ class SnekEval(object):
             g = node.generators[gi]
             if len(g.ifs) > 1:
                 raise NotImplementedError(
-                    "Sorry, only one `if` allowed in list comprehension, consider booleans or a function",
-                    node,
+                    "Sorry, only one `if` allowed in list comprehension, consider booleans or a function"
                 )
 
             for i in self._eval(g.iter):

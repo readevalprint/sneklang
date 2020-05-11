@@ -11,7 +11,7 @@ def snek_is_still_python(code, snek_scope=None):
     exec(code, py_scope)
     print(py_scope["result"])
     print(snek_scope["result"])
-    assert py_scope["result"] == snek_scope["result"]
+    assert py_scope["result"] == snek_scope["result"], code
 
 
 def test_snek_comprehension_python():
@@ -223,18 +223,18 @@ def test_snek_is_python_try():
     snek_is_still_python(
         """
 def foo(a):
-    res = 'try: '
+    res = 'try|'
     try:
         try:
-            res = res + str(1/a)
+            res = res + str(1/a) + "|"
         except ArithmeticError as e:
-            res= res + 'ArithmeticError'
+            res= res + 'ArithmeticError|'
     except Exception as e2:
-        return 'oops' + str(e2)
+        return 'oops|' 
     else:
-        res = res + 'else'
+        res = res + 'else|'
     finally:
-        res = res + 'fin'
+        res = res + 'fin|'
     return a, res
 result = [foo(i) for i in [-1,0,1, 'a']]
 """,
@@ -315,7 +315,7 @@ EXCEPTION_CASES = [
         {},
         "SnekRuntimeError(\"MemoryError('List in statement is too long! (100001, when 100000 is max)')\")",
     ),
-    ("1()", {}, "SnekRuntimeError('Sorry, int type is not callable')"),
+    ("1()", {}, "SnekRuntimeError(\"TypeError('Sorry, int type is not callable')\")"),
     (
         "forbidden_func()[0]()",
         {"forbidden_func": lambda: [type]},
@@ -340,8 +340,10 @@ EXCEPTION_CASES = [
     (
         "[a for a in [] if True if True]",
         {},
-        ("SnekRuntimeError(\"NotImplementedError('Sorry, only one `if` allowed in list comprehension"
-            ", consider booleans or a function')\")"),
+        (
+            "SnekRuntimeError(\"NotImplementedError('Sorry, only one `if` allowed in list comprehension"
+            ", consider booleans or a function')\")"
+        ),
     ),
     (
         "class A: 1",
@@ -463,7 +465,7 @@ def test_call_stack():
         repr(excinfo.value)
         == "SnekRuntimeError(\"RecursionError('Sorry, stack is to large. The MAX_CALL_DEPTH is 32.')\")"
     )
-
+    # test fake call stack
     snek_eval(
         "def foo(x): return foo(x - 1) if x > 0 else 0",
         scope=scope,
