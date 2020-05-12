@@ -181,6 +181,18 @@ while n < 10:
 """
     )
 
+    snek_is_still_python(
+        """
+result = []
+n = 0
+while n < 10:
+    n = n + 1
+    result = result + [n]
+    if n == 5:
+        continue
+"""
+    )
+
 
 def test_snek_is_python_for():
     snek_is_still_python(
@@ -215,6 +227,16 @@ for n in [1,2,3,4,5,6,7,8,10]:
     result = result + [n]
     if n > 5:
         break
+"""
+    )
+
+    snek_is_still_python(
+        """
+result = []
+for n in [1,2,3,4,5,6,7,8,10]:
+    result = result + [n]
+    if n == 5:
+        continue
 """
     )
 
@@ -313,7 +335,7 @@ EXCEPTION_CASES = [
     (
         repr(list("a" * 100001)),
         {},
-        "SnekRuntimeError(\"MemoryError('List in statement is too long! (100001, when 100000 is max)')\")",
+        "SnekRuntimeError(\"MemoryError('List in statement is too long!')\")",
     ),
     ("1()", {}, "SnekRuntimeError(\"TypeError('Sorry, int type is not callable')\")"),
     (
@@ -463,7 +485,7 @@ def test_call_stack():
         scope["foo"](50)
     assert (
         repr(excinfo.value)
-        == "SnekRuntimeError(\"RecursionError('Sorry, stack is to large. The MAX_CALL_DEPTH is 32.')\")"
+        == "SnekRuntimeError(\"RecursionError('Sorry, stack is to large')\")"
     )
     # test fake call stack
     snek_eval(
@@ -475,7 +497,7 @@ def test_call_stack():
         scope["foo"](3)
     assert (
         repr(excinfo.value)
-        == "SnekRuntimeError(\"RecursionError('Sorry, stack is to large. The MAX_CALL_DEPTH is 32.')\")"
+        == "SnekRuntimeError(\"RecursionError('Sorry, stack is to large')\")"
     )
 
 
@@ -498,7 +520,7 @@ def test_settings():
         snek_eval("a=[]\nwhile True: a=[a, a]", scope=scope)
     assert (
         repr(excinfo.value)
-        == "SnekRuntimeError(\"MemoryError('Scope has used too much memory: 604 > 500')\")"
+        == "SnekRuntimeError(\"MemoryError('Scope has used too much memory')\")"
     )
     sneklang.MAX_SCOPE_SIZE = orig
 
@@ -514,6 +536,9 @@ def test_importing():
         None,
         "123",
     ]
+    with pytest.raises(SnekRuntimeError) as excinfo:
+        snek_eval("from a import d", module_dict={"a": {"b": "123"}})
+    assert repr(excinfo.value) == "SnekRuntimeError(\"ImportError('d')\")"
 
 
 def test_dissallowed_functions():

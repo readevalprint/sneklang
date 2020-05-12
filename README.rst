@@ -141,8 +141,12 @@ You can also delete variables and catch exception
     >>> user_scope['a']
     [1, 2, 3, 6, 7]
     >>> user_scope['b']
-    'We got an error: list index out of range'
+    "We got an error: IndexError('list index out of range')"
 
+
+
+All exceptions will be wrapped in a `SnekRuntimeError` with `__context__` containing the
+original exception.
 
 .. code-block:: python
 
@@ -197,7 +201,7 @@ Here you can see some extreamly ineffecient code to multiply a number by 2
     ...     multiply_by_2(50)
     ... except SnekRuntimeError as e:
     ...     print(f'oh no! "{e}" On line:{e.lineno} col:{e.col}')
-    oh no! "Sorry, stack is to large. The MAX_CALL_DEPTH is 32." On line:3 col:15
+    oh no! "RecursionError('Sorry, stack is to large')" On line:3 col:15
 
 
 
@@ -205,7 +209,7 @@ Here you can see some extreamly ineffecient code to multiply a number by 2
     ...     snek_eval("int('foo is not a number')")
     ... except SnekRuntimeError as e:
     ...     print('oh no! {}'.format(e))
-    oh no! invalid literal for int() with base 10: 'foo is not a number'
+    oh no! ValueError("invalid literal for int() with base 10: 'foo is not a number'")
 
 
 

@@ -74,7 +74,7 @@ repo.
 ...   print(e)
 ... except RecursionError as e:  # uncaught, this would hit a python error.
 ...  print("Oh no! The current recursion limit is too low for ths function: %s" % format(sys.getrecursionlimit()))
-Sorry, stack is to large. The MAX_CALL_DEPTH is 32.
+RecursionError('Sorry, stack is to large')
 
 
 """
@@ -157,6 +157,10 @@ class Return(Exception):
 
 class Break(Exception):
     """ Not actually an exception, just a way to break out of the loop"""
+
+
+class Continue(Exception):
+    """ Not actually an exception, just a way to continue the loop"""
 
 
 class InvalidExpression(Exception):
@@ -258,7 +262,8 @@ DEFAULT_SCOPE = {
     "isinstance": isinstance,
     "issubclass": issubclass,
     "iter": iter,
-    **BUILTIN_EXCEPTIONS,
+    "Exception": Exception,
+    # **BUILTIN_EXCEPTIONS,
 }
 
 
@@ -361,6 +366,7 @@ class SnekEval(object):
             ast.For: self._eval_for,
             ast.While: self._eval_while,
             ast.Break: self._eval_break,
+            ast.Continue: self._eval_continue,
             ast.Pass: self._eval_pass,
             ast.Assert: self._eval_assert,
             ast.Delete: self._eval_delete,
@@ -467,7 +473,7 @@ class SnekEval(object):
             self._last_eval_result = handler(node)
             self.track(node)
             return self._last_eval_result
-        except (Return, Break, SnekRuntimeError):
+        except (Return, Break, Continue, SnekRuntimeError):
             raise
         except Exception as e:
             exc = e
@@ -488,6 +494,8 @@ class SnekEval(object):
                     self._eval(b)
             except Break:
                 break
+            except Continue:
+                continue
         else:
             for b in node.orelse:
                 self._eval(b)
@@ -512,6 +520,8 @@ class SnekEval(object):
                     self._eval(b)
             except Break:
                 break
+            except Continue:
+                continue
         else:
             for b in node.orelse:
                 self._eval(b)
@@ -535,7 +545,7 @@ class SnekEval(object):
                 submodule = module.__dict__[alias.name]
                 self.scope[asname] = submodule
             except KeyError:
-                raise ImportError(alias.name, node)
+                raise ImportError(alias.name)
 
     def _eval_expr(self, node):
         return self._eval(node.value)
@@ -575,6 +585,9 @@ class SnekEval(object):
 
     def _eval_break(self, node):
         raise Break()
+
+    def _eval_continue(self, node):
+        raise Continue()
 
     def _eval_pass(self, node):
         pass
@@ -802,11 +815,7 @@ class SnekEval(object):
 
     def _eval_call(self, node):
         if len(self.call_stack) >= MAX_CALL_DEPTH:
-            raise RecursionError(
-                "Sorry, stack is to large. The MAX_CALL_DEPTH is {}.".format(
-                    MAX_CALL_DEPTH
-                )
-            )
+            raise RecursionError("Sorry, stack is to large")
         func = self._eval(node.func)
         if not callable(func):
             raise TypeError(
@@ -938,26 +947,17 @@ class SnekEval(object):
 
     def _eval_dict(self, node):
         if len(node.keys) > MAX_STRING_LENGTH:
-            raise MemoryError(
-                "Dict in statement is too long!"
-                " ({0}, when {1} is max)".format(len(node.keys), MAX_STRING_LENGTH)
-            )
+            raise MemoryError("Dict in statement is too long!")
         return {self._eval(k): self._eval(v) for (k, v) in zip(node.keys, node.values)}
 
     def _eval_tuple(self, node):
         if len(node.elts) > MAX_STRING_LENGTH:
-            raise MemoryError(
-                "Tuple in statement is too long!"
-                " ({0}, when {1} is max)".format(len(node.elts), MAX_STRING_LENGTH)
-            )
+            raise MemoryError("Tuple in statement is too long!")
         return tuple(self._eval(x) for x in node.elts)
 
     def _eval_list(self, node):
         if len(node.elts) > MAX_STRING_LENGTH:
-            raise MemoryError(
-                "List in statement is too long!"
-                " ({0}, when {1} is max)".format(len(node.elts), MAX_STRING_LENGTH)
-            )
+            raise MemoryError("List in statement is too long!")
         return list(self._eval(x) for x in node.elts)
 
     def _eval_set(self, node):
@@ -972,9 +972,7 @@ class SnekEval(object):
             raise TimeoutError("This program has too many evaluations")
         size = len(repr(self.scope)) + len(repr(self._last_eval_result))
         if size > MAX_SCOPE_SIZE:
-            raise MemoryError(
-                f"Scope has used too much memory: { size } > {MAX_SCOPE_SIZE}"
-            )
+            raise MemoryError(f"Scope has used too much memory")
 
     def _eval_comprehension(self, node):
 
