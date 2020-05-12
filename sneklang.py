@@ -126,6 +126,7 @@ DISALLOW_FUNCTIONS = {
     open,
     exec,
     format,
+    vars,
 }
 
 ALLOWED_BUILTINS = [
