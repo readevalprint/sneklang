@@ -81,6 +81,7 @@ Sorry, stack is to large. The MAX_CALL_DEPTH is 32.
 
 import ast
 import operator as op
+import builtins
 import sys
 import types
 import itertools
@@ -228,6 +229,11 @@ def safe_add(a, b):  # pylint: disable=invalid-name
 ########################################
 # Defaults for the evaluator:
 
+BUILTIN_EXCEPTIONS = {
+    k: v
+    for k, v in vars(builtins).items()
+    if issubclass(type(v), type) and issubclass(v, Exception)
+}
 
 DEFAULT_SCOPE = {
     "True": True,
@@ -248,11 +254,11 @@ DEFAULT_SCOPE = {
     "all": all,
     "round": round,
     "isinstance": isinstance,
-    "Exception": Exception,
     "enumerate": enumerate,
     "isinstance": isinstance,
     "issubclass": issubclass,
     "iter": iter,
+    **BUILTIN_EXCEPTIONS,
 }
 
 

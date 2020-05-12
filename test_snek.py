@@ -230,7 +230,7 @@ def foo(a):
         except ArithmeticError as e:
             res= res + 'ArithmeticError|'
     except Exception as e2:
-        return 'oops|' 
+        return 'oops|'
     else:
         res = res + 'else|'
     finally:
