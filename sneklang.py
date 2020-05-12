@@ -251,7 +251,6 @@ DEFAULT_SCOPE = {
     "dict": dict,
     "set": set,
     "len": len,
-    # "no one man should have all this power"
     "min": min,
     "max": max,
     "any": any,
@@ -972,7 +971,7 @@ class SnekEval(object):
             raise TimeoutError("This program has too many evaluations")
         size = len(repr(self.scope)) + len(repr(self._last_eval_result))
         if size > MAX_SCOPE_SIZE:
-            raise MemoryError(f"Scope has used too much memory")
+            raise MemoryError("Scope has used too much memory")
 
     def _eval_comprehension(self, node):
 
