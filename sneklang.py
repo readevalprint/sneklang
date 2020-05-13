@@ -347,6 +347,7 @@ class SnekEval(object):
             ast.Module: self._eval_module,
             ast.Expr: self._eval_expr,
             ast.Assign: self._eval_assign,
+            ast.Lambda: self._eval_lambda,
             ast.FunctionDef: self._eval_functiondef,
             ast.arguments: self._eval_arguments,
             ast.Return: self._eval_return,
@@ -379,6 +380,7 @@ class SnekEval(object):
 
         self.assignments = {
             ast.Name: self._assign_name,
+            ast.Tuple: self._assign_tuple,
             ast.Subscript: self._assign_subscript,
         }
 
@@ -598,6 +600,31 @@ class SnekEval(object):
             ret = self._eval(node.value)
         raise Return(ret)
 
+    def _eval_lambda(self, node):
+
+        sig_obj = self._eval(node.args)
+        _class = self.__class__
+
+        @forge.sign(*sig_obj["args"])
+        def _func(**local_scope):
+            s = _class(
+                modules=self.modules,
+                scope={**self.scope, **local_scope},
+                call_stack=self.call_stack,
+            )
+            s.expr = self.expr
+            try:
+                return s._eval(node.body)
+            finally:
+                self.track(s)
+
+        # prevent unwrap from detecting this nested function
+        del _func.__wrapped__
+        _func.__name__ = "<lambda>"
+        _func.__qualname__ = "<lambda>"
+
+        return _func
+
     def _eval_functiondef(self, node):
 
         sig_obj = self._eval(node.args)
@@ -620,6 +647,7 @@ class SnekEval(object):
                     self.track(s)
 
         _func.__name__ = node.name
+        _func.__qualname__ = node.name
 
         # prevent unwrap from detecting this nested function
         del _func.__wrapped__
@@ -629,6 +657,24 @@ class SnekEval(object):
             _func = decorator(_func)
 
         self.scope[node.name] = _func
+
+    def _assign_tuple(self, node, values):
+        try:
+            iter(values)
+        except TypeError:
+            raise TypeError(f"cannot unpack non-iterable { type(values).__name__ } object")
+        len_elts = len(node.elts)
+        len_values = len(values)
+        if len_elts > len_values:
+            raise ValueError(
+                f"not enough values to unpack (expected { len_elts }, got { len_values })"
+            )
+        elif len_elts < len_values:
+            raise ValueError(f"too many values to unpack (expected { len_elts })")
+
+        for target, value in zip(node.elts, values):
+            handler = self.assignments[type(target)]
+            handler(target, value)
 
     def _assign_name(self, node, value):
         self.scope[node.id] = value
@@ -672,18 +718,10 @@ class SnekEval(object):
         raise exc
 
     def _assign(self, targets, value):
-        if len(targets) > 1:
-            raise NotImplementedError(
-                "Sorry, cannot assign to {} targets.".format(len(targets))
-            )
-        target = targets[0]
-        try:
+        for target in targets:
+            self.track(target)
             handler = self.assignments[type(target)]
             handler(target, value)
-        except KeyError:
-            raise NotImplementedError(
-                "Sorry, cannot assign to {}".format(type(target).__name__)
-            )
 
     def _eval_assign(self, node):
         value = self._eval(node.value)
@@ -1013,10 +1051,6 @@ class SnekEval(object):
 
         def do_generator(gi=0):
             g = node.generators[gi]
-            if len(g.ifs) > 1:
-                raise NotImplementedError(
-                    "Sorry, only one `if` allowed in list comprehension, consider booleans or a function"
-                )
 
             for i in self._eval(g.iter):
                 recurse_targets(g.target, i)

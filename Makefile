@@ -1,13 +1,13 @@
 test:
 	python -V
 	flake8 ./sneklang.py ./test_snek.py
-	time coverage run --rcfile=setup.cfg  `which pytest` --doctest-modules  --doctest-glob='*.rst'
+	time coverage run --rcfile=setup.cfg  `which pytest` --doctest-modules  --doctest-glob='README.rst'
 	coverage annotate --rcfile=setup.cfg
 	coverage report --rcfile=setup.cfg
 	coverage html --rcfile=setup.cfg
 
 autotest:
-	ls *.py *.rst | entr make test
+	ls ./sneklang.py ./test_snek.py README.rst | entr make test
 
 .PHONY: test
 

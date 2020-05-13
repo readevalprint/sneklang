@@ -94,6 +94,13 @@ result = 2"""
     snek_is_still_python(code)
 
 
+def test_assignment():
+    code = """
+a = b,c = 1,2
+result = a,b,c """
+    snek_is_still_python(code)
+
+
 def test_snek_delete():
     code = """
 a = 1
@@ -108,6 +115,14 @@ def test_snek_kwargs():
 def foo(a,b,c,d,e,f,g):
     return (a,b,c,d,e,f,g)
 
+result = foo(1, *[2,3], *[4], e=5, **{'f':6}, **{'g':7} )
+"""
+    snek_is_still_python(code)
+
+
+def test_snek_lambda():
+    code = """
+foo = lambda a,b,c,d,e,f,g: (a,b,c,d,e,f,g)
 result = foo(1, *[2,3], *[4], e=5, **{'f':6}, **{'g':7} )
 """
     snek_is_still_python(code)
@@ -308,16 +323,6 @@ EXCEPTION_CASES = [
         "SnekRuntimeError(\"NotImplementedError('Sorry, VarKwargs are not available')\")",
     ),
     (
-        "a,b = 1, 2",
-        {},
-        "SnekRuntimeError(\"NotImplementedError('Sorry, cannot assign to Tuple')\")",
-    ),
-    (
-        "a=b=1",
-        {},
-        "SnekRuntimeError(\"NotImplementedError('Sorry, cannot assign to 2 targets.')\")",
-    ),
-    (
         "int.mro()",
         {},
         "SnekRuntimeError(\"DangerousValue('Sorry, this method is not available. (type.mro)')\")",
@@ -358,14 +363,6 @@ EXCEPTION_CASES = [
         "'say{}'.format('hi') ",
         {},
         "SnekRuntimeError(\"DangerousValue('Sorry, this method is not available. (str.format)')\")",
-    ),
-    (
-        "[a for a in [] if True if True]",
-        {},
-        (
-            "SnekRuntimeError(\"NotImplementedError('Sorry, only one `if` allowed in list comprehension"
-            ", consider booleans or a function')\")"
-        ),
     ),
     (
         "class A: 1",
@@ -420,6 +417,26 @@ EXCEPTION_CASES = [
         {},
         "SnekRuntimeError(\"NotImplementedError('Sorry, GeneratorExp is not available in this evaluator')\")",
     ),
+    (
+        "vars(object)",
+        {"vars": vars},
+        "DangerousValue(\"This function 'vars' in scope is <built-in function vars> and is in DISALLOW_FUNCTIONS\")",
+    ),
+    (
+        "a, b = 1",
+        {},
+        "SnekRuntimeError(\"TypeError('cannot unpack non-iterable int object')\")",
+    ),
+    (
+        "a, b = 1, 2, 3",
+        {},
+        "SnekRuntimeError(\"ValueError('too many values to unpack (expected 2)')\")",
+    ),
+    (
+        "a, b, c = 1, 2",
+        {},
+        "SnekRuntimeError(\"ValueError('not enough values to unpack (expected 3, got 2)')\")",
+    ),
 ]
 
 
@@ -470,6 +487,7 @@ def test_smoketests():
         ("{'a': 1}.items()", [{"a": 1}.items()]),
         ("{'a': 1}.keys()", [{"a": 1}.keys()]),
         ("list({'a': 1}.values())", [[1]]),
+        ("[a for a in [1,2,3,4,5,6,7,8,9,10] if a % 2 if a % 5]", [[1, 3, 7, 9]]),
     ]
     for code, out in CASES:
         assert snek_eval(code) == out, f"{code} should equal {out}"
