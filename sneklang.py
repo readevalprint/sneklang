@@ -76,9 +76,10 @@ repo.
 ...  print("Oh no! The current recursion limit is too low for ths function: %s" % format(sys.getrecursionlimit()))
 RecursionError('Sorry, stack is to large')
 
-
 """
 
+from collections import namedtuple as nt
+import re
 import ast
 import operator as op
 import builtins
@@ -87,6 +88,7 @@ import types
 import itertools
 from collections import Counter, defaultdict
 from functools import partial
+import inspect
 import forge
 
 ########################################
@@ -556,19 +558,29 @@ class SnekEval(object):
         return [self._eval(b) for b in node.body]
 
     def _eval_arguments(self, node):
-
-        if node.vararg:
-            exc = NotImplementedError("Sorry, VarArgs are not available")
-            raise exc
-
-        if node.kwarg:
-            exc = NotImplementedError("Sorry, VarKwargs are not available")
-            raise exc
-
+        # if node.vararg:
+        #    raise NotImplementedError("Sorry, vargs are not supported")
         NONEXISTANT_DEFAULT = object()  # a unique object to contrast with None
+        posonlyargs_and_defaults = []
+        num_args = len(node.args)
+        for (arg, default) in itertools.zip_longest(
+            node.posonlyargs[::-1],
+            node.defaults[::-1][num_args:],
+            fillvalue=NONEXISTANT_DEFAULT,
+        ):
+            if default is NONEXISTANT_DEFAULT:
+                posonlyargs_and_defaults.append(forge.pos(arg.arg))
+            else:
+                posonlyargs_and_defaults.append(
+                    forge.pos(arg.arg, default=self._eval(default))
+                )
+        posonlyargs_and_defaults.reverse()
+
         args_and_defaults = []
         for (arg, default) in itertools.zip_longest(
-            node.args[::-1], node.defaults[::-1], fillvalue=NONEXISTANT_DEFAULT
+            node.args[::-1],
+            node.defaults[::-1][:num_args],
+            fillvalue=NONEXISTANT_DEFAULT,
         ):
             if default is NONEXISTANT_DEFAULT:
                 args_and_defaults.append(forge.arg(arg.arg))
@@ -577,13 +589,28 @@ class SnekEval(object):
                     forge.arg(arg.arg, default=self._eval(default))
                 )
         args_and_defaults.reverse()
+        vpo = (node.vararg and forge.args(node.vararg.arg)) or []
 
-        return {
-            "args": args_and_defaults,
-            # "vargs": node.vararg and forge.args(node.vararg.arg) or [],
-            # "kwargs": {arg.arg: forge.kwarg() for arg in node.kwonlyargs},
-            # "varkwargs": node.kwarg and forge.kwargs(node.kwarg.arg) or {}
-        }
+        kwonlyargs_and_defaults = []
+        # kwonlyargs is 1:1 to kw_defaults, no need to jump through hoops
+        for (arg, default) in zip(node.kwonlyargs, node.kw_defaults):
+            if not default:
+                kwonlyargs_and_defaults.append(forge.kwo(arg.arg))
+            else:
+                kwonlyargs_and_defaults.append(
+                    forge.kwo(arg.arg, default=self._eval(default))
+                )
+        vkw = (node.kwarg and forge.kwargs(node.kwarg.arg)) or {}
+
+        return (
+            [
+                *posonlyargs_and_defaults,
+                *args_and_defaults,
+                *vpo,
+                *kwonlyargs_and_defaults,
+            ],
+            vkw,
+        )
 
     def _eval_break(self, node):
         raise Break()
@@ -602,11 +629,19 @@ class SnekEval(object):
 
     def _eval_lambda(self, node):
 
-        sig_obj = self._eval(node.args)
+        sig_list, sig_dict = self._eval(node.args)
         _class = self.__class__
 
-        @forge.sign(*sig_obj["args"])
-        def _func(**local_scope):
+        def _func(*args, **kwargs):
+            local_scope = {
+                inspect.getfullargspec(_func).varargs: args,
+                **{
+                    kwo: kwargs.pop(kwo)
+                    for kwo in inspect.getfullargspec(_func).kwonlyargs
+                    + inspect.getfullargspec(_func).args
+                },
+                inspect.getfullargspec(_func).varkw: kwargs,
+            }
             s = _class(
                 modules=self.modules,
                 scope={**self.scope, **local_scope},
@@ -619,19 +654,29 @@ class SnekEval(object):
                 self.track(s)
 
         # prevent unwrap from detecting this nested function
-        del _func.__wrapped__
+        # del _func.__wrapped__
         _func.__name__ = "<lambda>"
         _func.__qualname__ = "<lambda>"
 
+        _func = forge.sign(*sig_list, **sig_dict)(_func)
         return _func
 
     def _eval_functiondef(self, node):
 
-        sig_obj = self._eval(node.args)
+        sig_list, sig_dict = self._eval(node.args)
         _class = self.__class__
 
-        @forge.sign(*sig_obj["args"])
-        def _func(**local_scope):
+        def _func(*args, **kwargs):
+            # reconstruct what the orignial function arguments would have been
+            local_scope = {
+                inspect.getfullargspec(_func).varargs: args,
+                **{
+                    kwo: kwargs.pop(kwo)
+                    for kwo in inspect.getfullargspec(_func).kwonlyargs
+                    + inspect.getfullargspec(_func).args
+                },
+                inspect.getfullargspec(_func).varkw: kwargs,
+            }
             s = _class(
                 modules=self.modules,
                 scope={**self.scope, **local_scope},
@@ -648,6 +693,7 @@ class SnekEval(object):
 
         _func.__name__ = node.name
         _func.__qualname__ = node.name
+        _func = forge.sign(*sig_list, **sig_dict)(_func)
 
         # prevent unwrap from detecting this nested function
         del _func.__wrapped__
@@ -662,7 +708,9 @@ class SnekEval(object):
         try:
             iter(values)
         except TypeError:
-            raise TypeError(f"cannot unpack non-iterable { type(values).__name__ } object")
+            raise TypeError(
+                f"cannot unpack non-iterable { type(values).__name__ } object"
+            )
         len_elts = len(node.elts)
         len_values = len(values)
         if len_elts > len_values:
@@ -958,8 +1006,6 @@ class SnekEval(object):
     def _eval_formattedvalue(self, node):
         if node.format_spec:
             # from https://stackoverflow.com/a/44553570/260366
-            from collections import namedtuple as nt
-            import re
 
             format_spec = self._eval(node.format_spec)
             r = r"(([\s\S])?([<>=\^]))?([\+\- ])?([#])?([0])?(\d*)([,])?((\.)(\d*))?([sbcdoxXneEfFgGn%])?"
@@ -999,6 +1045,8 @@ class SnekEval(object):
         return list(self._eval(x) for x in node.elts)
 
     def _eval_set(self, node):
+        if len(node.elts) > MAX_STRING_LENGTH:
+            raise MemoryError("Set in statement is too long!")
         return set(self._eval(x) for x in node.elts)
 
     def track(self, node):

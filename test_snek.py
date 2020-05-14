@@ -120,6 +120,60 @@ result = foo(1, *[2,3], *[4], e=5, **{'f':6}, **{'g':7} )
     snek_is_still_python(code)
 
 
+def test_args():
+    code = """
+def standard_arg(arg):
+    return arg
+result = standard_arg("a") + standard_arg(arg="b")"""
+    snek_is_still_python(code)
+
+    code = """
+def standard_arg(arg=1):
+    return arg
+result = standard_arg("a") + standard_arg(arg="b")"""
+    snek_is_still_python(code)
+
+
+def test_pos_args():
+    code = """
+def pos_only_arg(arg, /):
+    return arg
+
+result = pos_only_arg("a")"""
+    snek_is_still_python(code)
+
+    code = """
+def pos_only_arg(arg=1, /):
+    return arg
+
+result = pos_only_arg("a")"""
+    snek_is_still_python(code)
+
+
+def test_kwd_only_arg():
+    code = """
+def kwd_only_arg(*, arg):
+    return arg
+
+result = kwd_only_arg(arg=42)"""
+    snek_is_still_python(code)
+
+    code = """
+def kwd_only_arg(*, arg="foo"):
+    return arg
+
+result = kwd_only_arg(arg=42)"""
+    snek_is_still_python(code)
+
+
+def test_func_combined():
+    code = """
+def combined_example(pos_only, /, standard, *, kwd_only, **kwgs):
+    return (pos_only, standard, kwd_only, kwgs)
+result = combined_example(1, 2, kwd_only=3, foo=[1,2,3])"""
+    snek_is_still_python(code)
+
+
 def test_snek_lambda():
     code = """
 foo = lambda a,b,c,d,e,f,g: (a,b,c,d,e,f,g)
@@ -313,16 +367,6 @@ EXCEPTION_CASES = [
         "SnekRuntimeError(\"NotImplementedError('Sorry, MatMult is not available in this evaluator')\")",
     ),
     (
-        "def foo(*args): 1",
-        {},
-        "SnekRuntimeError(\"NotImplementedError('Sorry, VarArgs are not available')\")",
-    ),
-    (
-        "def foo(**kwargs): 1",
-        {},
-        "SnekRuntimeError(\"NotImplementedError('Sorry, VarKwargs are not available')\")",
-    ),
-    (
         "int.mro()",
         {},
         "SnekRuntimeError(\"DangerousValue('Sorry, this method is not available. (type.mro)')\")",
@@ -331,6 +375,21 @@ EXCEPTION_CASES = [
         repr("a" * 100001),
         {},
         "SnekRuntimeError(\"MemoryError('Value is too large (100001 > 100000 )')\")",
+    ),
+    (
+        repr({i: 1 for i in range(1000001)}),
+        {},
+        "SnekRuntimeError(\"MemoryError('Dict in statement is too long!')\")",
+    ),
+    (
+        repr(tuple(range(1000001))),
+        {},
+        "SnekRuntimeError(\"MemoryError('Tuple in statement is too long!')\")",
+    ),
+    (
+        repr(set(range(1000001))),
+        {},
+        "SnekRuntimeError(\"MemoryError('Set in statement is too long!')\")",
     ),
     (
         "b'" + ("a" * 100_001) + "'",
@@ -436,6 +495,21 @@ EXCEPTION_CASES = [
         "a, b, c = 1, 2",
         {},
         "SnekRuntimeError(\"ValueError('not enough values to unpack (expected 3, got 2)')\")",
+    ),
+    (
+        "f'{1:<1000}'",
+        {},
+        "SnekRuntimeError(\"MemoryError('Sorry, this format width is too long.')\")",
+    ),
+    (
+        "f'{1/3:.1000}'",
+        {},
+        "SnekRuntimeError(\"MemoryError('Sorry, this format precision is too long.')\")",
+    ),
+    (
+        "f'{1:a}'",
+        {},
+        "SnekRuntimeError('ValueError(\"Unknown format code \\'a\\' for object of type \\'int\\'\")')",
     ),
 ]
 
