@@ -7,10 +7,10 @@ from sneklang import *
 def snek_is_still_python(code, snek_scope=None):
     py_scope = {}
     snek_scope = snek_scope or {}
-    print(snek_eval(code, scope=snek_scope))
     exec(code, py_scope)
-    print(py_scope["result"])
-    print(snek_scope["result"])
+    print("py_scope", py_scope["result"])
+    print("snek_eval output", snek_eval(code, scope=snek_scope))
+    print("snek_scope", snek_scope["result"])
     assert py_scope["result"] == snek_scope["result"], code
 
 
@@ -306,6 +306,30 @@ for n in [1,2,3,4,5,6,7,8,10]:
     result = result + [n]
     if n == 5:
         continue
+"""
+    )
+
+
+def test_decorators():
+    snek_is_still_python(
+        """
+result = []
+def my_decorator(log):
+    result.append(f"d1 {log}")
+    def _wrapper(func):
+        result.append(f"_wrapper {log}")
+        def _inner(*args, **kwargs):
+            result.append(f"inner {log}")
+            func(*args, **kwargs)
+        return _inner
+    return _wrapper
+
+@my_decorator(1)
+@my_decorator(2)
+def say(word=None):
+    result.append(word or "hi world!")
+say()
+say('ola mundo')
 """
     )
 

@@ -78,7 +78,6 @@ RecursionError('Sorry, stack is to large')
 
 """
 
-from functools import reduce
 from collections import namedtuple as nt
 import re
 import ast
@@ -145,6 +144,8 @@ ALLOWED_BUILTINS = [
     "list.sort",
     "dict.keys",
     "dict.values",
+    "sum",
+    "list.append",
 ]
 
 
@@ -668,7 +669,7 @@ class SnekEval(object):
         _class = self.__class__
 
         def _func(*args, **kwargs):
-            # reconstruct what the orignial function arguments would have been
+            # reconostruct what the orignial function arguments would have been
             local_scope = {
                 inspect.getfullargspec(_func).varargs: args,
                 **{
@@ -699,15 +700,13 @@ class SnekEval(object):
         # prevent unwrap from detecting this nested function
         del _func.__wrapped__
         _func.__doc__ = ast.get_docstring(node)
-        decorators = [
-            self._eval(decorator_node) for decorator_node in node.decorator_list[::-1]
-        ]
 
-        if decorators:
-            print(decorators)
-            self.scope[node.name] = reduce((lambda d: d(_func)), decorators)(_func)
-        else:
-            self.scope[node.name] = _func
+        decorated_func = _func
+        decorators = [self._eval(d) for d in node.decorator_list]
+        for decorator in decorators[::-1]:
+            decorated_func = decorator(decorated_func)
+
+        self.scope[node.name] = decorated_func
 
     def _assign_tuple(self, node, values):
         try:
