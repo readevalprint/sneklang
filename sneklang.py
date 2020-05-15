@@ -78,6 +78,7 @@ RecursionError('Sorry, stack is to large')
 
 """
 
+from functools import reduce
 from collections import namedtuple as nt
 import re
 import ast
@@ -698,11 +699,15 @@ class SnekEval(object):
         # prevent unwrap from detecting this nested function
         del _func.__wrapped__
         _func.__doc__ = ast.get_docstring(node)
-        for decorator_node in node.decorator_list[::-1]:
-            decorator = self._eval(decorator_node)
-            _func = decorator(_func)
+        decorators = [
+            self._eval(decorator_node) for decorator_node in node.decorator_list[::-1]
+        ]
 
-        self.scope[node.name] = _func
+        if decorators:
+            print(decorators)
+            self.scope[node.name] = reduce((lambda d: d(_func)), decorators)(_func)
+        else:
+            self.scope[node.name] = _func
 
     def _assign_tuple(self, node, values):
         try:
