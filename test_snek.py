@@ -5,6 +5,9 @@ from sneklang import *
 
 
 def snek_is_still_python(code, snek_scope=None):
+    """
+    Here we run the code in python exec, then in snek_eval, then compare the `scope['result']`
+    """
     py_scope = {}
     snek_scope = snek_scope or {}
     exec(code, py_scope)
@@ -15,9 +18,6 @@ def snek_is_still_python(code, snek_scope=None):
 
 
 def test_snek_comprehension_python():
-    """
-    Here we run the code in python exec, then in snek_eval, then compare the `scope['result']`
-    """
     CASES = [
         """
 non_flat= [ [1,2,3], [4,5,6], [7,8] ]
@@ -99,6 +99,15 @@ def test_assignment():
 a = b,c = 1,2
 result = a,b,c """
     snek_is_still_python(code)
+
+
+def test_augassign():
+    for operator in ["+=", "-=", "/=", "//=", "%=", "!=", "*=", "^="]:
+        code = f"""
+result = 110
+result {operator} 21
+    """
+        snek_is_still_python(code)
 
 
 def test_snek_delete():

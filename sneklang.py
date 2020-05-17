@@ -129,6 +129,7 @@ DISALLOW_FUNCTIONS = {
     exec,
     format,
     vars,
+    zip,
 }
 
 ALLOWED_BUILTINS = [
@@ -146,6 +147,10 @@ ALLOWED_BUILTINS = [
     "dict.values",
     "sum",
     "list.append",
+    "list.count",
+    "list.index",
+    "list.reverse",
+    "list.pop",
 ]
 
 
@@ -350,6 +355,7 @@ class SnekEval(object):
             ast.Slice: self._eval_slice,
             ast.Module: self._eval_module,
             ast.Expr: self._eval_expr,
+            ast.AugAssign: self._eval_augassign,
             ast.Assign: self._eval_assign,
             ast.Lambda: self._eval_lambda,
             ast.FunctionDef: self._eval_functiondef,
@@ -774,6 +780,18 @@ class SnekEval(object):
             self.track(target)
             handler = self.assignments[type(target)]
             handler(target, value)
+
+    def _eval_augassign(self, node):
+        try:
+            value = self.operators[type(node.op)](
+                self._eval(node.target), self._eval(node.value)
+            )
+        except KeyError:
+            raise NotImplementedError(
+                "Sorry, {0} is not available in this "
+                "evaluator".format(type(node.op).__name__)
+            )
+        return self._assign([node.target], value)
 
     def _eval_assign(self, node):
         value = self._eval(node.value)
