@@ -9,7 +9,7 @@ Sneklang
    :target: https://travis-ci.org/readevalprint/sneklang
    :alt: Build Status
 
-.. image:: https://coveralls.io/repos/github/readevalprint/sneklang/badge.svg?branch=master
+.. image:: https://coveralls.io/repos/github/readevalprint/sneklang/badge.svg?branch=master&3
    :target: https://coveralls.io/r/readevalprint/sneklang?branch=master
    :alt: Coverage Status
 
