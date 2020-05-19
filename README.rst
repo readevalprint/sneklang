@@ -5,7 +5,7 @@
 Sneklang 
 ========================
 
-.. image:: https://travis-ci.org/readevalprint/sneklang.svg?branch=master
+.. image:: https://travis-ci.org/readevalprint/sneklang.svg?branch=master&3
    :target: https://travis-ci.org/readevalprint/sneklang
    :alt: Build Status
 
