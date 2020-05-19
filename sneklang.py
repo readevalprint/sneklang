@@ -1,5 +1,5 @@
 """
-Sneklang - (C) 2019 Timothy Watts
+Sneklang - (C) 2020 Timothy Watts
 -------------------------------------
 
 Minimal subset of Python for safe evaluation
@@ -779,6 +779,12 @@ class SnekEval(object):
         for target in targets:
             self.track(target)
             handler = self.assignments[type(target)]
+            try:
+                handler = self.assignments[type(target)]
+            except KeyError:
+                raise NotImplementedError(
+                    "Sorry, cannot assign to {0}".format(type(target).__name__)
+                )
             handler(target, value)
 
     def _eval_augassign(self, node):
