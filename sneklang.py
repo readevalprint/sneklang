@@ -571,18 +571,19 @@ class SnekEval(object):
         NONEXISTANT_DEFAULT = object()  # a unique object to contrast with None
         posonlyargs_and_defaults = []
         num_args = len(node.args)
-        for (arg, default) in itertools.zip_longest(
-            node.posonlyargs[::-1],
-            node.defaults[::-1][num_args:],
-            fillvalue=NONEXISTANT_DEFAULT,
-        ):
-            if default is NONEXISTANT_DEFAULT:
-                posonlyargs_and_defaults.append(forge.pos(arg.arg))
-            else:
-                posonlyargs_and_defaults.append(
-                    forge.pos(arg.arg, default=self._eval(default))
-                )
-        posonlyargs_and_defaults.reverse()
+        if hasattr(node, 'posonlyargs'):
+            for (arg, default) in itertools.zip_longest(
+                node.posonlyargs[::-1],
+                node.defaults[::-1][num_args:],
+                fillvalue=NONEXISTANT_DEFAULT,
+            ):
+                if default is NONEXISTANT_DEFAULT:
+                    posonlyargs_and_defaults.append(forge.pos(arg.arg))
+                else:
+                    posonlyargs_and_defaults.append(
+                        forge.pos(arg.arg, default=self._eval(default))
+                    )
+            posonlyargs_and_defaults.reverse()
 
         args_and_defaults = []
         for (arg, default) in itertools.zip_longest(
@@ -799,14 +800,18 @@ class SnekEval(object):
 
     @staticmethod
     def _eval_constant(node):
-        if len(repr(node.s)) > MAX_STRING_LENGTH:
+        if len(repr(node.value)) > MAX_STRING_LENGTH:
             raise MemoryError(
-                "Value is too large ({0} > {1} )".format(len(node.s), MAX_STRING_LENGTH)
+                "Value is too large ({0} > {1} )".format(len(repr(node.value)), MAX_STRING_LENGTH)
             )
         return node.value
 
     @staticmethod
     def _eval_num(node):
+        if len(repr(node.n)) > MAX_STRING_LENGTH:
+            raise MemoryError(
+                "Value is too large ({0} > {1} )".format(len(repr(node.n)), MAX_STRING_LENGTH)
+            )
         return node.n
 
     @staticmethod

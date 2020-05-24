@@ -1,4 +1,5 @@
 import pytest
+import sys
 
 import sneklang
 from sneklang import *
@@ -143,6 +144,7 @@ result = standard_arg("a") + standard_arg(arg="b")"""
     snek_is_still_python(code)
 
 
+@pytest.mark.skipif(sys.version_info < (3, 8), reason="requires python3.8 or higher")
 def test_pos_args():
     code = """
 def pos_only_arg(arg, /):
@@ -175,6 +177,7 @@ result = kwd_only_arg(arg=42)"""
     snek_is_still_python(code)
 
 
+@pytest.mark.skipif(sys.version_info < (3, 8), reason="requires python3.8 or higher")
 def test_func_combined():
     code = """
 def combined_example(pos_only, /, standard, *, kwd_only, **kwgs):
@@ -400,15 +403,24 @@ EXCEPTION_CASES = [
         "SnekRuntimeError(\"NotImplementedError('Sorry, MatMult is not available in this evaluator')\")",
     ),
     (
-        "int.mro()",
-        {},
-        "SnekRuntimeError(\"DangerousValue('Sorry, this method is not available. (type.mro)')\")",
+        "",
+        {"open": open},
+        # dfferences in how python version report the error
+        "DangerousValue",
     ),
     (
-        repr("a" * 100001),
-        {},
-        "SnekRuntimeError(\"MemoryError('Value is too large (100001 > 100000 )')\")",
+        "a.clear()",
+        {"a": []},
+        # dfferences in how python version report the error
+        "NotImplementedError",  
     ),
+    (
+        "a @= 3",
+        {},
+        "SnekRuntimeError(\"NotImplementedError('Sorry, MatMult is not available in this evaluator')\")",
+    ),
+    ("int.mro()", {}, 'SnekRuntimeError("DangerousValue'),
+    (repr("a" * 100001), {}, 'SnekRuntimeError("MemoryError'),
     (
         repr({i: 1 for i in range(1000001)}),
         {},
@@ -424,11 +436,8 @@ EXCEPTION_CASES = [
         {},
         "SnekRuntimeError(\"MemoryError('Set in statement is too long!')\")",
     ),
-    (
-        "b'" + ("a" * 100_001) + "'",
-        {},
-        "SnekRuntimeError(\"MemoryError('Value is too large (100001 > 100000 )')\")",
-    ),
+    ("b'" + ("a" * 100_001) + "'", {}, 'SnekRuntimeError("MemoryError('),
+    (("1" + "0" * sneklang.MAX_STRING_LENGTH), {}, 'SnekRuntimeError("MemoryError('),
     (
         repr(list("a" * 100001)),
         {},
@@ -554,8 +563,8 @@ def test_exceptions():
             out = snek_eval(code, scope=scope)
         except Exception as e:
             exc = e
-            assert (
-                repr(exc) == ex_repr
+            assert ex_repr in repr(
+                exc
             ), f"{repr(repr(exc))}\nFailed {code} \nin CASE {i}"
             continue
         pytest.fail("{}\nneeded to raise: {}\nreturned: {}".format(code, ex_repr, out))
@@ -737,11 +746,11 @@ f"result: {value:{width}.{precision}}"  # nested fields
 def test_coverage():
     src = """
 def bar():
-    return None
+    return untested_variable
 
 def foo(a):
     b = 1
-    return (1 if a else 2)
+    return (b if a else 2)
 
 def test_foo():
     [foo(i) for i in [False, [], 0]]
@@ -752,13 +761,13 @@ def test_foo():
     assert (
         ascii_format_coverage(coverage, src)
         == """Missing Return on line: 3 col: 4
-    return None
+    return untested_variable
 ----^
-Missing Constant on line: 3 col: 11
-    return None
+Missing Name on line: 3 col: 11
+    return untested_variable
 -----------^
-Missing Constant on line: 7 col: 12
-    return (1 if a else 2)
+Missing Name on line: 7 col: 12
+    return (b if a else 2)
 ------------^
 87% coverage
 """
