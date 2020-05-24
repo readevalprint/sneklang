@@ -436,7 +436,7 @@ EXCEPTION_CASES = [
         {},
         "SnekRuntimeError(\"MemoryError('Set in statement is too long!')\")",
     ),
-    ("b'" + ("a" * 100_001) + "'", {}, 'SnekRuntimeError("MemoryError('),
+    ("b'" + ("a" * 100001) + "'", {}, 'SnekRuntimeError("MemoryError('),
     (("1" + "0" * sneklang.MAX_STRING_LENGTH), {}, 'SnekRuntimeError("MemoryError('),
     (
         repr(list("a" * 100001)),
