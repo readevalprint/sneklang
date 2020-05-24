@@ -5,15 +5,15 @@
 Sneklang 
 ========================
 
-.. image:: https://travis-ci.org/readevalprint/sneklang.svg?branch=master&3
+.. image:: https://travis-ci.org/readevalprint/sneklang.svg?branch=master&4
    :target: https://travis-ci.org/readevalprint/sneklang
    :alt: Build Status
 
-.. image:: https://coveralls.io/repos/github/readevalprint/sneklang/badge.svg?branch=master&3
+.. image:: https://coveralls.io/repos/github/readevalprint/sneklang/badge.svg?branch=master&4
    :target: https://coveralls.io/r/readevalprint/sneklang?branch=master
    :alt: Coverage Status
 
-.. image:: https://badge.fury.io/py/sneklang.svg
+.. image:: https://badge.fury.io/py/sneklang.svg?5
    :target: https://badge.fury.io/py/sneklang
    :alt: PyPI Version
 
@@ -21,6 +21,12 @@ Try online
 ----------
 
 https://sneklang.functup.com
+
+Supports
+--------
+
+Python 3.7 or 3.8
+
 
 Basic Usage
 -----------
