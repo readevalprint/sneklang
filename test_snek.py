@@ -412,7 +412,7 @@ EXCEPTION_CASES = [
         "a.clear()",
         {"a": []},
         # dfferences in how python version report the error
-        "NotImplementedError",  
+        "NotImplementedError",
     ),
     (
         "a @= 3",
@@ -554,6 +554,16 @@ EXCEPTION_CASES = [
         "SnekRuntimeError('ValueError(\"Unknown format code \\'a\\' for object of type \\'int\\'\")')",
     ),
 ]
+
+
+@pytest.mark.skipif(sys.version_info >= (3, 8), reason="Old way of checking functions")
+def test_old_dangerous_values():
+    with pytest.raises(sneklang.DangerousValue) as excinfo:
+        snek_eval("a", scope={"a": {}.keys})
+    assert (
+        repr(excinfo.value)
+        == "DangerousValue(\"This function 'a' in scope might be a bad idea.\")"
+    )
 
 
 @pytest.mark.filterwarnings("ignore::SyntaxWarning")

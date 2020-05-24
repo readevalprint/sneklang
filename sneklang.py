@@ -194,7 +194,7 @@ class SnekRuntimeError(Exception):
 
     def __init__(self, msg, node=None):
         self.__node = node
-        if node:
+        if node:  # pragma: no branch
             self.col = getattr(self.__node, "col_offset", None)
             self.lineno = getattr(self.__node, "lineno", None)
         super().__init__(msg)
@@ -459,7 +459,7 @@ class SnekEval(object):
         except (Exception,) as e:
             exc = e
             node = None
-            if hasattr(exc, "_snek_node"):
+            if hasattr(exc, "_snek_node"):  # pragma: no branch
                 node = exc._snek_node
             raise SnekRuntimeError(repr(exc), node=node) from exc
 
@@ -489,7 +489,7 @@ class SnekEval(object):
             raise
         except Exception as e:
             exc = e
-            if not hasattr(exc, "_snek_node"):
+            if not hasattr(exc, "_snek_node"):  # pragma: no branch
                 exc._snek_node = node
             raise SnekRuntimeError(repr(exc), node=node) from exc
 
@@ -571,7 +571,7 @@ class SnekEval(object):
         NONEXISTANT_DEFAULT = object()  # a unique object to contrast with None
         posonlyargs_and_defaults = []
         num_args = len(node.args)
-        if hasattr(node, 'posonlyargs'):
+        if hasattr(node, "posonlyargs"):
             for (arg, default) in itertools.zip_longest(
                 node.posonlyargs[::-1],
                 node.defaults[::-1][num_args:],
@@ -782,7 +782,8 @@ class SnekEval(object):
             handler = self.assignments[type(target)]
             try:
                 handler = self.assignments[type(target)]
-            except KeyError:
+            except KeyError:  # pragma: no cover
+                # This is caught in validate()
                 raise NotImplementedError(
                     "Sorry, cannot assign to {0}".format(type(target).__name__)
                 )
@@ -793,7 +794,8 @@ class SnekEval(object):
             value = self.operators[type(node.op)](
                 self._eval(node.target), self._eval(node.value)
             )
-        except KeyError:
+        except KeyError:  # pragma: no cover
+            # This is caught in validate()
             raise NotImplementedError(
                 "Sorry, {0} is not available in this "
                 "evaluator".format(type(node.op).__name__)
@@ -808,7 +810,9 @@ class SnekEval(object):
     def _eval_constant(node):
         if len(repr(node.value)) > MAX_STRING_LENGTH:
             raise MemoryError(
-                "Value is too large ({0} > {1} )".format(len(repr(node.value)), MAX_STRING_LENGTH)
+                "Value is too large ({0} > {1} )".format(
+                    len(repr(node.value)), MAX_STRING_LENGTH
+                )
             )
         return node.value
 
@@ -816,7 +820,9 @@ class SnekEval(object):
     def _eval_num(node):
         if len(repr(node.n)) > MAX_STRING_LENGTH:
             raise MemoryError(
-                "Value is too large ({0} > {1} )".format(len(repr(node.n)), MAX_STRING_LENGTH)
+                "Value is too large ({0} > {1} )".format(
+                    len(repr(node.n)), MAX_STRING_LENGTH
+                )
             )
         return node.n
 
@@ -850,7 +856,8 @@ class SnekEval(object):
             return self.operators[type(node.op)](
                 self._eval(node.left), self._eval(node.right)
             )
-        except KeyError:
+        except KeyError:  # pragma: no cover
+            # This is caught in validate()
             raise NotImplementedError(
                 "Sorry, {0} is not available in this "
                 "evaluator".format(type(node.op).__name__)
