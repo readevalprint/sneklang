@@ -1,8 +1,19 @@
 dist: xenial
 language: python
-python:
-    - "3.7"  
-    - "3.8"  
+
+
+matrix:
+  include:
+    - python: 3.7
+      env: TOXENV=clean,py37,report
+    - python: 3.8
+      env: TOXENV=clean,py38,report
+
+branches:
+  only:
+    - master
+
+
 install:
  - pip install coveralls flake8 pytest-cov tox
  - pip install -e .
