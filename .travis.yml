@@ -3,7 +3,7 @@ language: python
 python:
     - "3.8"  
 install:
- - pip install coveralls flake8 pytest-cov
+ - pip install coveralls flake8 pytest-cov tox
  - pip install -e .
 script:
  -  make test
