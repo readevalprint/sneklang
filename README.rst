@@ -303,21 +303,6 @@ are provided in the ``DEFAULT_SCOPE`` dict:
 
 You can also hand the scope of variable enames over to a function, if you prefer:
 
-
-.. code-block:: python
-
-    >>> class case_insensitive_scope(dict):
-    ...    def __getitem__(self, key):
-    ...        return super().__getitem__(key.lower())
-    ...    def __setitem__(self, key, value):
-    ...        return super().__setitem__(key.lower(), value)
-
-    >>> snek_eval('''
-    ... FOOBAR
-    ... foobar
-    ... FooBar''', scope=case_insensitive_scope({'foobar': 42}))
-    [42, 42, 42]
-
 .. code-block:: python
 
     >>> import sneklang

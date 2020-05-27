@@ -1,6 +1,6 @@
 test:
 	flake8 ./sneklang.py ./test_snek.py
-	time tox
+	time tox -p all
 
 autotest:
 	ls ./sneklang.py ./test_snek.py README.rst | entr make test

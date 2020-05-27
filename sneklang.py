@@ -89,6 +89,7 @@ import itertools
 from collections import Counter, defaultdict
 from functools import partial
 import inspect
+from copy import copy
 import forge
 
 ########################################
@@ -272,7 +273,7 @@ DEFAULT_SCOPE = {
     "issubclass": issubclass,
     "iter": iter,
     "Exception": Exception,
-    # **BUILTIN_EXCEPTIONS,
+    **BUILTIN_EXCEPTIONS,
 }
 
 
@@ -281,6 +282,51 @@ def make_modules(mod_dict):
         k: (v.__dict__.update(mod_dict[k]) or v)
         for k, v in {k: types.ModuleType(k) for k in mod_dict}.items()
     }
+
+
+class Scope(dict):
+    __slots__ = ('dicts',)
+
+    def __init__(self, mapping=(), **kwargs):
+        self.dicts = [kwargs]
+
+    def __repr__(self):
+        return repr(self.dicts[1:])
+
+    def __copy__(self):
+        duplicate = copy(super())
+        duplicate.dicts = self.dicts[:]
+        return duplicate
+
+    def push(self, d):
+        self.dicts.append(d)
+
+    def __iter__(self):
+        return iter(self.flatten())
+
+    def __setitem__(self, key, value):
+        self.dicts[-1][key] = value
+
+    def __getitem__(self, key):
+        for d in reversed(self.dicts):
+            if key in d:
+                return d[key]
+        raise KeyError(key)
+
+    def __delitem__(self, key):
+        del self.dicts[-1][key]
+
+    def __contains__(self, key):
+        return any(key in d for d in self.dicts)
+
+    def flatten(self):
+        flat = {}
+        for d in self.dicts:
+            flat.update(d)
+        return flat
+
+    def update(self, other_dict):
+        return self.dicts[-1].update(other_dict)
 
 
 class SnekEval(object):
@@ -323,11 +369,9 @@ class SnekEval(object):
         if scope is None:
             scope = {}
 
-        tmp_scope = DEFAULT_SCOPE.copy()
-        tmp_scope.update(scope)
-        scope.update(tmp_scope)
-
-        self.scope = scope
+        self.scope = Scope()
+        self.scope.update(DEFAULT_SCOPE)
+        self.scope.push(scope)
 
         self.modules = {}
         if modules is not None:
@@ -400,7 +444,7 @@ class SnekEval(object):
         }
 
         # Check for forbidden functions:
-        for name, func in self.scope.items():
+        for name, func in self.scope.flatten().items():
             if callable(func):
                 try:
                     hash(func)
@@ -550,10 +594,10 @@ class SnekEval(object):
         for alias in node.names:
             asname = alias.asname or alias.name
             try:
-                try:
-                    module = self.modules[node.module]
-                except KeyError:
-                    raise ModuleNotFoundError(alias.name)
+                module = self.modules[node.module]
+            except KeyError:
+                raise ModuleNotFoundError(node.module)
+            try:
                 submodule = module.__dict__[alias.name]
                 self.scope[asname] = submodule
             except KeyError:
@@ -652,10 +696,9 @@ class SnekEval(object):
                 inspect.getfullargspec(_func).varkw: kwargs,
             }
             s = _class(
-                modules=self.modules,
-                scope={**self.scope, **local_scope},
-                call_stack=self.call_stack,
+                modules=self.modules, scope=copy(self.scope), call_stack=self.call_stack
             )
+            s.scope.push(local_scope)
             s.expr = self.expr
             try:
                 return s._eval(node.body)
@@ -688,9 +731,10 @@ class SnekEval(object):
             }
             s = _class(
                 modules=self.modules,
-                scope={**self.scope, **local_scope},
+                scope=copy(self.scope),
                 call_stack=self.call_stack,
             )
+            s.scope.push(local_scope)
             s.expr = self.expr
             for b in node.body:
                 try:
@@ -790,6 +834,8 @@ class SnekEval(object):
             handler(target, value)
 
     def _eval_augassign(self, node):
+        if node.target.id not in self.scope.dicts[-1]:
+            raise UnboundLocalError(f"local variable '{node.target.id}' referenced before assignment")
         try:
             value = self.operators[type(node.op)](
                 self._eval(node.target), self._eval(node.value)

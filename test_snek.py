@@ -326,15 +326,23 @@ def test_decorators():
     snek_is_still_python(
         """
 result = []
+a = 12
 def my_decorator(log):
-    result.append(f"d1 {log}")
+    a = 13
+    result.append(f"d1 {log} {a}")
     def _wrapper(func):
-        result.append(f"_wrapper {log}")
+        a = 14
+        result.append(f"_wrapper {log} {a}")
         def _inner(*args, **kwargs):
-            result.append(f"inner {log}")
+            a = 15
+            result.append(f"inner {log} {a}")
             func(*args, **kwargs)
+
+        a = 16
         return _inner
+    a = 17
     return _wrapper
+a = 18
 
 @my_decorator(1)
 @my_decorator(2)
@@ -488,7 +496,7 @@ EXCEPTION_CASES = [
     (
         "from nowhere import non_existant",
         {},
-        "SnekRuntimeError(\"ModuleNotFoundError('non_existant')\")",
+        "SnekRuntimeError(\"ModuleNotFoundError('nowhere')\")",
     ),
     ('assert False, "no"', {}, "SnekRuntimeError(\"AssertionError('no')\")"),
     (
@@ -692,6 +700,20 @@ def test_dissallowed_functions():
         snek_eval("", scope={"open": open})
 
 
+def test_undefined_local():
+
+    with pytest.raises(SnekRuntimeError):
+        snek_eval(
+            """
+a =1
+def foo():
+    a += 3
+    return a
+foo()
+"""
+        )
+
+
 def test_return_nothing():
     assert (
         snek_eval(
@@ -717,12 +739,11 @@ foo(1,b=2)"""
 
 
 def test_eval_functiondef_does_nothing():
-    # todo: add pass
     assert (
         snek_eval(
             """
 def foo(a,b):
-    1
+    pass
 foo(1,b=2)"""
         )
         == [None, None]
