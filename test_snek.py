@@ -102,6 +102,13 @@ result = a,b,c """
     snek_is_still_python(code)
 
 
+def test_starred():
+    code = """
+a, *b, c,(*d,e) = (1,2,3,4,5,6,7,8,(9,10,))
+result = a, b, c, d, e"""
+    snek_is_still_python(code)
+
+
 def test_augassign():
     for operator in ["+=", "-=", "/=", "//=", "%=", "!=", "*=", "^="]:
         code = f"""
@@ -378,6 +385,16 @@ result = [foo(i) for i in [-1,0,1, 'a']]
 
 
 EXCEPTION_CASES = [
+    (
+        "*a, *b = c",
+        {},
+        'SnekRuntimeError("SyntaxError(\'two starred expressions in assignment',
+    ),
+    (
+        "*a, b, c = [1]",
+        {},
+        "SnekRuntimeError(\"ValueError('not enough values to unpack (expected at least 2, got 1)')\")",
+    ),
     ("nope", {}, "SnekRuntimeError('NameError(\"\\'nope\\' is not defined\")')"),
     (
         "a=1; a.b",
@@ -564,16 +581,6 @@ EXCEPTION_CASES = [
 ]
 
 
-@pytest.mark.skipif(sys.version_info >= (3, 8), reason="Old way of checking functions")
-def test_old_dangerous_values():
-    with pytest.raises(sneklang.DangerousValue) as excinfo:
-        snek_eval("a", scope={"a": {}.keys})
-    assert (
-        repr(excinfo.value)
-        == "DangerousValue(\"This function 'a' in scope might be a bad idea.\")"
-    )
-
-
 @pytest.mark.filterwarnings("ignore::SyntaxWarning")
 def test_exceptions():
     for i, (code, scope, ex_repr) in enumerate(EXCEPTION_CASES):
@@ -586,6 +593,16 @@ def test_exceptions():
             ), f"{repr(repr(exc))}\nFailed {code} \nin CASE {i}"
             continue
         pytest.fail("{}\nneeded to raise: {}\nreturned: {}".format(code, ex_repr, out))
+
+
+@pytest.mark.skipif(sys.version_info >= (3, 8), reason="Old way of checking functions")
+def test_old_dangerous_values():
+    with pytest.raises(sneklang.DangerousValue) as excinfo:
+        snek_eval("a", scope={"a": {}.keys})
+    assert (
+        repr(excinfo.value)
+        == "DangerousValue(\"This function 'a' in scope might be a bad idea.\")"
+    )
 
 
 def test_smoketests():

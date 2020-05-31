@@ -285,7 +285,7 @@ def make_modules(mod_dict):
 
 
 class Scope(dict):
-    __slots__ = ('dicts',)
+    __slots__ = ("dicts",)
 
     def __init__(self, mapping=(), **kwargs):
         self.dicts = [kwargs]
@@ -434,8 +434,10 @@ class SnekEval(object):
 
         self.assignments = {
             ast.Name: self._assign_name,
-            ast.Tuple: self._assign_tuple,
+            ast.Tuple: self._assign_tuple_or_list,
             ast.Subscript: self._assign_subscript,
+            ast.List: self._assign_tuple_or_list,
+            ast.Starred: self._assign_starred,
         }
 
         self.deletions = {
@@ -730,9 +732,7 @@ class SnekEval(object):
                 inspect.getfullargspec(_func).varkw: kwargs,
             }
             s = _class(
-                modules=self.modules,
-                scope=copy(self.scope),
-                call_stack=self.call_stack,
+                modules=self.modules, scope=copy(self.scope), call_stack=self.call_stack
             )
             s.scope.push(local_scope)
             s.expr = self.expr
@@ -759,7 +759,7 @@ class SnekEval(object):
 
         self.scope[node.name] = decorated_func
 
-    def _assign_tuple(self, node, values):
+    def _assign_tuple_or_list(self, node, values):
         try:
             iter(values)
         except TypeError:
@@ -768,16 +768,39 @@ class SnekEval(object):
             )
         len_elts = len(node.elts)
         len_values = len(values)
-        if len_elts > len_values:
-            raise ValueError(
-                f"not enough values to unpack (expected { len_elts }, got { len_values })"
+        starred_indexes = [
+            i for i, n in enumerate(node.elts) if isinstance(n, ast.Starred)
+        ]
+        if len(starred_indexes) == 1:
+            if len_elts - 1 > len_values:
+                raise ValueError(
+                    f"not enough values to unpack (expected at least { len_elts - 1 }, got { len_values })"
+                )
+            starred_index = starred_indexes[0]
+            before_slice = slice(
+                starred_index, len_values - (len_elts - starred_index - 1)
             )
-        elif len_elts < len_values:
-            raise ValueError(f"too many values to unpack (expected { len_elts })")
+            after_slice = slice(len_values - (len_elts - starred_index - 1), len_values)
+            starred_values = (
+                *values[:starred_index],
+                list(values[before_slice]),
+                *values[after_slice],
+            )
+            for target, value in zip(node.elts, starred_values):
+                handler = self.assignments[type(target)]
+                handler(target, value)
 
-        for target, value in zip(node.elts, values):
-            handler = self.assignments[type(target)]
-            handler(target, value)
+        else:
+            if len_elts > len_values:
+                raise ValueError(
+                    f"not enough values to unpack (expected { len_elts }, got { len_values })"
+                )
+            elif len_elts < len_values:
+                raise ValueError(f"too many values to unpack (expected { len_elts })")
+
+            for target, value in zip(node.elts, values):
+                handler = self.assignments[type(target)]
+                handler(target, value)
 
     def _assign_name(self, node, value):
         self.scope[node.id] = value
@@ -787,6 +810,9 @@ class SnekEval(object):
         _slice = self._eval(node.slice)
         self._eval(node.value)[_slice] = value
         return value
+
+    def _assign_starred(self, node, value):
+        return self._assign([node.value], value)
 
     def _delete(self, targets):
         if len(targets) > 1:
@@ -822,10 +848,9 @@ class SnekEval(object):
 
     def _assign(self, targets, value):
         for target in targets:
-            self.track(target)
-            handler = self.assignments[type(target)]
             try:
                 handler = self.assignments[type(target)]
+                self.track(target)
             except KeyError:  # pragma: no cover
                 # This is caught in validate()
                 raise NotImplementedError(
@@ -835,7 +860,9 @@ class SnekEval(object):
 
     def _eval_augassign(self, node):
         if node.target.id not in self.scope.dicts[-1]:
-            raise UnboundLocalError(f"local variable '{node.target.id}' referenced before assignment")
+            raise UnboundLocalError(
+                f"local variable '{node.target.id}' referenced before assignment"
+            )
         try:
             value = self.operators[type(node.op)](
                 self._eval(node.target), self._eval(node.value)
@@ -1148,7 +1175,7 @@ class SnekEval(object):
 
     def _eval_comprehension(self, node):
 
-        if isinstance(node, ast.ListComp) or isinstance(node, ast.GeneratorExp):
+        if isinstance(node, ast.ListComp):
             to_return = list()
         elif isinstance(node, ast.DictComp):
             to_return = dict()
@@ -1192,9 +1219,7 @@ class SnekEval(object):
                     if len(node.generators) > gi + 1:
                         do_generator(gi + 1)
                     else:
-                        if isinstance(node, ast.ListComp) or isinstance(
-                            node, ast.GeneratorExp
-                        ):
+                        if isinstance(node, ast.ListComp):
                             to_return.append(self._eval(node.elt))
                         elif isinstance(node, ast.DictComp):
                             to_return[self._eval(node.key)] = self._eval(node.value)
