@@ -612,8 +612,6 @@ class SnekEval(object):
         return [self._eval(b) for b in node.body]
 
     def _eval_arguments(self, node):
-        # if node.vararg:
-        #    raise NotImplementedError("Sorry, vargs are not supported")
         NONEXISTANT_DEFAULT = object()  # a unique object to contrast with None
         posonlyargs_and_defaults = []
         num_args = len(node.args)
@@ -718,6 +716,14 @@ class SnekEval(object):
     def _eval_functiondef(self, node):
 
         sig_list, sig_dict = self._eval(node.args)
+        _annotations = {
+            a.arg: self._eval(a.annotation)
+            for a in node.args.args
+            + getattr(node.args, "posonlyargs", [None])  # for backwards compat
+            + getattr(node.args, "kwonlyargs", [None])  # for backwards compat
+            + [node.args.kwarg]  # is a single element
+            if a and a.annotation
+        }
         _class = self.__class__
 
         def _func(*args, **kwargs):
@@ -745,6 +751,7 @@ class SnekEval(object):
                     self.track(s)
 
         _func.__name__ = node.name
+        _func.__annotations__ = _annotations
         _func.__qualname__ = node.name
         _func = forge.sign(*sig_list, **sig_dict)(_func)
 

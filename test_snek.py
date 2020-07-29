@@ -385,11 +385,7 @@ result = [foo(i) for i in [-1,0,1, 'a']]
 
 
 EXCEPTION_CASES = [
-    (
-        "*a, *b = c",
-        {},
-        'SnekRuntimeError("SyntaxError(\'two starred expressions in assignment',
-    ),
+    ("*a, *b = c", {}, 'SnekRuntimeError("SyntaxError(',),
     (
         "*a, b, c = [1]",
         {},
