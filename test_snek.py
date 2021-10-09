@@ -385,7 +385,11 @@ result = [foo(i) for i in [-1,0,1, 'a']]
 
 
 EXCEPTION_CASES = [
-    ("*a, *b = c", {}, 'SnekRuntimeError("SyntaxError(',),
+    (
+        "*a, *b = c",
+        {},
+        'SnekRuntimeError("SyntaxError(',
+    ),
     (
         "*a, b, c = [1]",
         {},
@@ -736,6 +740,21 @@ def foo():
 foo()"""
         )
         == [None, None]
+    )
+
+
+def test_return_in_exception():
+    assert (
+        snek_eval(
+            """
+def foo():
+    try:
+        return 1
+    except Exception as e:
+        return e
+foo()"""
+        )
+        == [None, 1]
     )
 
 

@@ -1005,6 +1005,8 @@ class SnekEval(object):
 
     def _eval_excepthandler(self, node):
         _type, exc, traceback = sys.exc_info()
+        if isinstance(exc, Return):
+            return False
         if (
             (node.type is None)
             or isinstance(exc, self._eval(node.type))
