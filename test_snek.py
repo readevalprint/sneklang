@@ -216,10 +216,13 @@ def nest(b):
     def _inner(c):
         a = 5
         def __inner(d):
-            return a,b,c,d
+            def ___inner(a):
+                # shadow a
+                return a,b,c,d
+            return ___inner
         return __inner
     return _inner
-result = nest(1)(2)(3)
+result = nest(1)(2)(3)(4)
 result
 """
     snek_is_still_python(code)
@@ -678,11 +681,18 @@ def test_call_stack():
 
 
 def test_settings():
+    code = """
+i=0
+a=[]
+while i < 10:
+    a=[a, a]
+    i+=1
+"""
     orig = sneklang.MAX_NODE_CALLS
     with pytest.raises(SnekRuntimeError) as excinfo:
         scope = {}
         sneklang.MAX_NODE_CALLS = 20
-        snek_eval("while True: 1", scope=scope)
+        snek_eval(code, scope=scope)
     assert (
         repr(excinfo.value)
         == "SnekRuntimeError(\"TimeoutError('This program has too many evaluations')\")"
@@ -693,7 +703,7 @@ def test_settings():
     with pytest.raises(SnekRuntimeError) as excinfo:
         scope = {}
         sneklang.MAX_SCOPE_SIZE = 500
-        snek_eval("a=[]\nwhile True: a=[a, a]", scope=scope)
+        snek_eval(code, scope=scope)
     assert (
         repr(excinfo.value)
         == "SnekRuntimeError(\"MemoryError('Scope has used too much memory')\")"
