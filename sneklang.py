@@ -160,28 +160,28 @@ ALLOWED_BUILTINS = [
 
 
 class Return(Exception):
-    """ Not actually an exception, just a way to break out of the function """
+    """Not actually an exception, just a way to break out of the function"""
 
     def __init__(self, value):
         self.value = value
 
 
 class Break(Exception):
-    """ Not actually an exception, just a way to break out of the loop"""
+    """Not actually an exception, just a way to break out of the loop"""
 
 
 class Continue(Exception):
-    """ Not actually an exception, just a way to continue the loop"""
+    """Not actually an exception, just a way to continue the loop"""
 
 
 class InvalidExpression(Exception):
-    """ Generic Exception """
+    """Generic Exception"""
 
     pass
 
 
 class DangerousValue(Exception):
-    """ When you try to pass in something dangerous to snek, it won't catch everything though """
+    """When you try to pass in something dangerous to snek, it won't catch everything though"""
 
     def __init__(self, *args):
         super().__init__(*args)
@@ -206,14 +206,14 @@ class SnekRuntimeError(Exception):
 
 
 def safe_mod(a, b):
-    """ only allow modulo on numbers, not string formating """
+    """only allow modulo on numbers, not string formating"""
     if isinstance(a, str):
         raise NotImplementedError("String formating is not supported")
     return a % b
 
 
 def safe_power(a, b):  # pylint: disable=invalid-name
-    """ a limited exponent/to-the-power-of function, for safety reasons """
+    """a limited exponent/to-the-power-of function, for safety reasons"""
 
     if abs(a) > MAX_POWER or abs(b) > MAX_POWER:
         raise MemoryError("Sorry! I don't want to evaluate {0} ** {1}".format(a, b))
@@ -221,7 +221,7 @@ def safe_power(a, b):  # pylint: disable=invalid-name
 
 
 def safe_mult(a, b):  # pylint: disable=invalid-name
-    """ limit the number of times an iterable can be repeated... """
+    """limit the number of times an iterable can be repeated..."""
     if hasattr(a, "__len__") and b * len(str(a)) >= MAX_SCOPE_SIZE:
         raise MemoryError("Sorry, I will not evalute something that long.")
     if hasattr(b, "__len__") and a * len(str(b)) >= MAX_SCOPE_SIZE:
@@ -231,7 +231,7 @@ def safe_mult(a, b):  # pylint: disable=invalid-name
 
 
 def safe_add(a, b):  # pylint: disable=invalid-name
-    """ iterable length limit again """
+    """iterable length limit again"""
 
     if hasattr(a, "__len__") and hasattr(b, "__len__"):
         if len(a) + len(b) > MAX_STRING_LENGTH:
@@ -462,7 +462,7 @@ class SnekEval(object):
                     )
 
     def validate(self, expr):
-        """ Validate that all ast.Nodes are supported by this sandbox """
+        """Validate that all ast.Nodes are supported by this sandbox"""
         tree = ast.parse(expr)
         ignored_nodes = set(
             [
@@ -495,8 +495,8 @@ class SnekEval(object):
         compile(expr, "<string>", "exec", dont_inherit=True)
 
     def eval(self, expr):
-        """ evaluate an expresssion, using the operators, functions and
-            scope previously set up. """
+        """evaluate an expresssion, using the operators, functions and
+        scope previously set up."""
 
         # set a copy of the expression aside, so we can give nice errors...
         self.expr = expr
@@ -513,7 +513,7 @@ class SnekEval(object):
         return self._eval(ast.parse(expr))
 
     def _eval(self, node):
-        """ The internal evaluator used on each node in the parsed tree. """
+        """The internal evaluator used on each node in the parsed tree."""
 
         try:
             self.track(node)
@@ -1199,7 +1199,7 @@ class SnekEval(object):
 
         def eval_scope_extra(node):
             """
-                Here we hide our extra scope for within this comprehension
+            Here we hide our extra scope for within this comprehension
             """
             if node.id in extra_scope:
                 return extra_scope[node.id]
@@ -1245,7 +1245,7 @@ class SnekEval(object):
 
 
 def snek_eval(expr, scope=None, call_stack=None, module_dict=None):
-    """ Simply evaluate an expresssion """
+    """Simply evaluate an expresssion"""
 
     modules = None
     if module_dict:
@@ -1301,7 +1301,7 @@ class SnekCoverage(SnekEval):
 
 
 def snek_test_coverage(expr, scope=None, call_stack=None, module_dict=None):
-    """ Run all test_* function in this expression """
+    """Run all test_* function in this expression"""
 
     modules = make_modules(module_dict or {})
 
