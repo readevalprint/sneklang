@@ -700,10 +700,8 @@ class SnekEval(object):
             )
             s.scope.push(local_scope)
             s.expr = self.expr
-            try:
-                return s._eval(node.body)
-            finally:
-                self.track(s)
+            s.track = self.track
+            return s._eval(node.body)
 
         # prevent unwrap from detecting this nested function
         # del _func.__wrapped__
@@ -742,13 +740,12 @@ class SnekEval(object):
             )
             s.scope.push(local_scope)
             s.expr = self.expr
+            s.track = self.track
             for b in node.body:
                 try:
                     s._eval(b)
                 except Return as r:
                     return r.value
-                finally:
-                    self.track(s)
 
         _func.__name__ = node.name
         _func.__annotations__ = _annotations
