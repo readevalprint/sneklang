@@ -1144,7 +1144,9 @@ class SnekEval(object):
                 if int(parsed_spec.precision or 0) > 100:
                     raise MemoryError("Sorry, this format precision is too long.")
 
-            fmt = "{:" + format_spec + "}"
+            conversion_dict = {-1: "", 115: "!s", 114: "!r", 97: "!a"}
+
+            fmt = "{" + conversion_dict[node.conversion] + ":" + format_spec + "}"
             return fmt.format(self._eval(node.value))
         return self._eval(node.value)
 
