@@ -12,10 +12,11 @@ def snek_is_still_python(code, snek_scope=None):
     py_scope = {}
     snek_scope = snek_scope or {}
     exec(code, py_scope)
-    print("py_scope", py_scope["result"])
+
+    print("py_scope", py_scope.get("result"))
     print("snek_eval output", snek_eval(code, scope=snek_scope))
-    print("snek_scope", snek_scope["result"])
-    assert py_scope["result"] == snek_scope["result"], code
+    print("snek_scope", snek_scope.get("result"))
+    assert py_scope["result"] == snek_scope["result"], f'{code}\n{py_scope["result"]} != {snek_scope["result"]}'
 
 
 def test_snek_comprehension_python():
@@ -734,9 +735,13 @@ def test_dissallowed_functions():
         snek_eval("", scope={"open": open})
 
 
-def test_undefined_local():
+def test_undefined():
+    with pytest.raises(SnekRuntimeError, match="NameError"):
+        snek_eval("a += 3")
 
-    with pytest.raises(SnekRuntimeError):
+
+def test_undefined_local():
+    with pytest.raises(SnekRuntimeError, match="UnboundLocalError"):
         snek_eval(
             """
 a =1
@@ -758,6 +763,18 @@ foo()"""
         )
         == [None, None]
     )
+
+def test_exception_variable_assignment():
+    snek_is_still_python('''
+e = 1
+try:
+    try: 1/0
+    except ZeroDivisionError as e: pass
+    e
+except NameError as e2:
+    result = True
+''')
+
 
 
 def test_return_in_exception():

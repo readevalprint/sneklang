@@ -863,7 +863,11 @@ class SnekEval(object):
             handler(target, value)
 
     def _eval_augassign(self, node):
-        if node.target.id not in self.scope.dicts[-1]:
+        if (
+            len(self.scope.dicts) > 2  # 0 is builtins, 1 globals, then local scope
+            and hasattr(node.target, "id")
+            and node.target.id not in self.scope.dicts[-1]
+        ):
             raise UnboundLocalError(
                 f"local variable '{node.target.id}' referenced before assignment"
             )
@@ -1012,9 +1016,15 @@ class SnekEval(object):
                 and isinstance(exc.__context__, self._eval(node.type))
             )
         ):
+            # Surprisingly this is how python does it
+            # See: https://docs.python.org/3/reference/compound_stmts.html#the-try-statement
             if node.name:
                 self.scope[node.name] = exc
-            [self._eval(b) for b in node.body]
+            try:
+                [self._eval(b) for b in node.body]
+            finally:
+                if node.name:
+                    del self.scope[node.name]
             return True
         return False
 
