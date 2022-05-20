@@ -16,7 +16,9 @@ def snek_is_still_python(code, snek_scope=None):
     print("py_scope", py_scope.get("result"))
     print("snek_eval output", snek_eval(code, scope=snek_scope))
     print("snek_scope", snek_scope.get("result"))
-    assert py_scope["result"] == snek_scope["result"], f'{code}\n{py_scope["result"]} != {snek_scope["result"]}'
+    assert (
+        py_scope["result"] == snek_scope["result"]
+    ), f'{code}\n{py_scope["result"]} != {snek_scope["result"]}'
 
 
 def test_snek_comprehension_python():
@@ -764,8 +766,10 @@ foo()"""
         == [None, None]
     )
 
+
 def test_exception_variable_assignment():
-    snek_is_still_python('''
+    snek_is_still_python(
+        """
 e = 1
 try:
     try: 1/0
@@ -773,8 +777,8 @@ try:
     e
 except NameError as e2:
     result = True
-''')
-
+"""
+    )
 
 
 def test_return_in_exception():
