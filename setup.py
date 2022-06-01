@@ -14,7 +14,6 @@ setup(
     url="https://github.com/readevalprint/sneklang",
     keywords=["sandbox", "parse", "ast"],
     test_suite="test_snek",
-    use_2to3=True,
     install_requires=["pytest", "ConfigArgParse", "python-forge"],
     classifiers=[
         "Development Status :: 4 - Beta",
