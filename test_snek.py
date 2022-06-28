@@ -2,6 +2,9 @@ import pytest
 import sys
 
 import sneklang
+
+sneklang.WHITLIST_FUNCTIONS += ["test_snek.*"]
+
 from sneklang import *
 
 
@@ -9,13 +12,16 @@ def snek_is_still_python(code, snek_scope=None):
     """
     Here we run the code in python exec, then in snek_eval, then compare the `scope['result']`
     """
+    print("===code")
+    print(code.strip())
+    print("===code")
     py_scope = {}
     snek_scope = snek_scope or {}
     exec(code, py_scope)
 
-    print("py_scope", py_scope.get("result"))
+    print("python result", py_scope.get("result"))
     print("snek_eval output", snek_eval(code, scope=snek_scope))
-    print("snek_scope", snek_scope.get("result"))
+    print("snek result", snek_scope.get("result"))
     assert (
         py_scope["result"] == snek_scope["result"]
     ), f'{code}\n{py_scope["result"]} != {snek_scope["result"]}'
@@ -65,8 +71,13 @@ a = [1,2,3,4,5,6,7,8,9,10]
 result = [x for x in a if x % 2]
 """,
         """
-d = {"a": 1, "b": 2, "c": 3}
-result = list(d.items()).sort()
+d = {**{"a": 1}, **{"b":2}, "z": 3}
+result = list(d.items())
+result.sort()
+""",
+        """
+a = {"a":1}
+result = {None: 1, **a, **{"a":2, **{"b":2}}, **{"b":3}}
 """,
     ]
     for code in CASES:
@@ -485,12 +496,12 @@ EXCEPTION_CASES = [
     (
         "forbidden_func()[0]()",
         {"forbidden_func": lambda: [type]},
-        "SnekRuntimeError(\"DangerousValue('This function is forbidden: type')\")",
+        "SnekRuntimeError(\"DangerousValue('This function is forbidden: builtins.type')\")",
     ),
     (
         "a()([])",
         {"a": lambda: sorted},
-        "SnekRuntimeError(\"NotImplementedError('This builtin function is not allowed: sorted')\")",
+        "SnekRuntimeError(\"NotImplementedError('This function is not allowed: builtins.sorted')\")",
     ),
     ("a[1]", {"a": []}, "SnekRuntimeError(\"IndexError('list index out of range')\")"),
     (

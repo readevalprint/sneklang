@@ -101,15 +101,6 @@ MAX_NODE_CALLS = 10000
 MAX_CALL_DEPTH = 32
 DISALLOW_PREFIXES = ["_"]
 DISALLOW_METHODS = [(str, "format"), (type, "mro"), (str, "format_map")]
-WHITLIST_ATTRIBUTES = [
-    "dict.get",
-    "dict.items",
-    "dict.keys",
-    "dict.values",
-    "list.sort",
-    "list.append",
-    "list.pop",
-]
 
 
 # Disallow functions:
@@ -134,26 +125,34 @@ DISALLOW_FUNCTIONS = {
     zip,
 }
 
-ALLOWED_BUILTINS = [
-    "str.join",
-    "len",
-    "print",
-    "str.count",
-    "iter",
-    "issubclass",
-    "isinstance",
-    "dict.items",
-    "dict.get",
-    "list.sort",
-    "dict.keys",
-    "dict.values",
-    "sum",
-    "list.append",
-    "list.count",
-    "list.index",
-    "list.reverse",
-    "list.pop",
-]
+
+_whitlist_functions_dict = {
+    "str": ["join"],
+    "builtins": [
+        "Exception",
+        "int",
+        "isinstance",
+        "issubclass",
+        "iter",
+        "len",
+        "list",
+        "print",
+        "str",
+        "sum",
+    ],
+    "dict": ["get", "items", "keys", "values"],
+    "list": ["sort", "append", "pop", "count", "index", "reverse"],
+    "script": ["*"],
+    "__main__": ["*"],
+    "sneklang": ["*"],
+}
+
+
+WHITLIST_FUNCTIONS = []
+
+for k, v in _whitlist_functions_dict.items():
+    for kk in v:
+        WHITLIST_FUNCTIONS.append(k + "." + kk)
 
 
 ########################################
@@ -258,6 +257,7 @@ DEFAULT_SCOPE = {
     "int": int,
     "float": float,
     "str": str,
+    "bool": bool,
     "list": list,
     "tuple": tuple,
     "dict": dict,
@@ -268,11 +268,14 @@ DEFAULT_SCOPE = {
     "any": any,
     "all": all,
     "round": round,
+    "sorted": sorted,
+    "sum": sum,
     "isinstance": isinstance,
     "enumerate": enumerate,
     "isinstance": isinstance,
     "issubclass": issubclass,
     "iter": iter,
+    "range": range,
     "Exception": Exception,
     **BUILTIN_EXCEPTIONS,
 }
@@ -328,6 +331,12 @@ class Scope(dict):
 
     def update(self, other_dict):
         return self.dicts[-1].update(other_dict)
+
+    def locals(self):
+        return self.dicts[-1]
+
+    def globals(self):
+        return self.dicts[1]  # layer 0 is builtins
 
 
 class SnekEval(object):
@@ -517,21 +526,22 @@ class SnekEval(object):
         """The internal evaluator used on each node in the parsed tree."""
 
         try:
-            self.track(node)
-            lineno = getattr(node, "lineno", None)  # noqa: F841
-            col = getattr(node, "col", None)  # noqa: F841
-
             try:
-                handler = self.nodes[type(node)]
-            except KeyError:
-                raise NotImplementedError(
-                    "Sorry, {0} is not available in this "
-                    "evaluator".format(type(node).__name__)
-                )
-            node.call_stack = self.call_stack
-            self._last_eval_result = handler(node)
-            self.track(node)
-            return self._last_eval_result
+                lineno = getattr(node, "lineno", None)  # noqa: F841
+                col = getattr(node, "col", None)  # noqa: F841
+
+                try:
+                    handler = self.nodes[type(node)]
+                except KeyError:
+                    raise NotImplementedError(
+                        "Sorry, {0} is not available in this "
+                        "evaluator".format(type(node).__name__)
+                    )
+                node.call_stack = self.call_stack
+                self._last_eval_result = handler(node)
+                return self._last_eval_result
+            finally:
+                self.track(node)
         except (Return, Break, Continue, SnekRuntimeError):
             raise
         except Exception as e:
@@ -600,11 +610,14 @@ class SnekEval(object):
                 module = self.modules[node.module]
             except KeyError:
                 raise ModuleNotFoundError(node.module)
-            try:
-                submodule = module.__dict__[alias.name]
-                self.scope[asname] = submodule
-            except KeyError:
-                raise ImportError(alias.name)
+            if alias.name == "*":
+                self.scope.update(module.__dict__)
+            else:
+                try:
+                    submodule = module.__dict__[alias.name]
+                    self.scope[asname] = submodule
+                except KeyError:
+                    raise ImportError(alias.name)
 
     def _eval_expr(self, node):
         return self._eval(node.value)
@@ -704,12 +717,12 @@ class SnekEval(object):
             s.track = self.track
             return s._eval(node.body)
 
-        # prevent unwrap from detecting this nested function
-        # del _func.__wrapped__
+        _func = forge.sign(*sig_list, **sig_dict)(_func)
+        del _func.__wrapped__
         _func.__name__ = "<lambda>"
         _func.__qualname__ = "<lambda>"
+        _func.__module__ = "script"
 
-        _func = forge.sign(*sig_list, **sig_dict)(_func)
         return _func
 
     def _eval_functiondef(self, node):
@@ -749,6 +762,7 @@ class SnekEval(object):
                     return r.value
 
         _func.__name__ = node.name
+        _func.__module__ = "script"
         _func.__annotations__ = _annotations
         _func.__qualname__ = node.name
         _func = forge.sign(*sig_list, **sig_dict)(_func)
@@ -1024,7 +1038,7 @@ class SnekEval(object):
             try:
                 [self._eval(b) for b in node.body]
             finally:
-                if node.name:
+                if node.name in self.scope:
                     del self.scope[node.name]
             return True
         return False
@@ -1037,24 +1051,23 @@ class SnekEval(object):
             raise TypeError(
                 "Sorry, {} type is not callable".format(type(func).__name__)
             )
+
+        modname = getattr(func, "__module__", None)
         qualname = getattr(func, "__qualname__", None)
-        func_hash = None
-        try:
-            func_hash = hash(func)
-        except TypeError:
-            if qualname not in WHITLIST_ATTRIBUTES:
-                raise NotImplementedError(
-                    "this function is not allowed: {}".format(qualname)
-                )
-        if func_hash and func in DISALLOW_FUNCTIONS:
-            raise DangerousValue(f"This function is forbidden: {qualname}")
-        if (
-            func_hash
-            and isinstance(func, types.BuiltinFunctionType)
-            and qualname not in ALLOWED_BUILTINS
-        ):
+
+        if modname:
+            fullname = modname + "." + qualname
+            wildcard = modname + ".*"
+        else:
+            fullname = qualname
+            wildcard = ".".join(fullname.split(".")[:-1] + ["*"])
+
+        if func in DISALLOW_FUNCTIONS:
+            raise DangerousValue(f"This function is forbidden: {fullname}")
+
+        if fullname not in WHITLIST_FUNCTIONS and wildcard not in WHITLIST_FUNCTIONS:
             raise NotImplementedError(
-                f"This builtin function is not allowed: {qualname}"
+                "This function is not allowed: {}".format(fullname)
             )
         kwarg_kwargs = [self._eval(k) for k in node.keywords]
 
@@ -1164,7 +1177,14 @@ class SnekEval(object):
     def _eval_dict(self, node):
         if len(node.keys) > MAX_STRING_LENGTH:
             raise MemoryError("Dict in statement is too long!")
-        return {self._eval(k): self._eval(v) for (k, v) in zip(node.keys, node.values)}
+        res = {}
+        for (k, v) in zip(node.keys, node.values):
+            if k is None:
+                res.update(self._eval(v))
+            else:
+                res[self._eval(k)] = self._eval(v)
+
+        return res
 
     def _eval_tuple(self, node):
         if len(node.elts) > MAX_STRING_LENGTH:
@@ -1203,19 +1223,7 @@ class SnekEval(object):
         else:  # pragma: no cover
             raise Exception("should never happen")
 
-        extra_scope = {}
-
-        previous_name_evaller = self.nodes[ast.Name]
-
-        def eval_scope_extra(node):
-            """
-            Here we hide our extra scope for within this comprehension
-            """
-            if node.id in extra_scope:
-                return extra_scope[node.id]
-            return previous_name_evaller(node)
-
-        self.nodes.update({ast.Name: eval_scope_extra})
+        self.scope.push({})
 
         def recurse_targets(target, value):
             """
@@ -1224,7 +1232,7 @@ class SnekEval(object):
             """
             self.track(target)
             if isinstance(target, ast.Name):
-                extra_scope[target.id] = value
+                self.scope[target.id] = value
             else:
                 for t, v in zip(target.elts, value):
                     recurse_targets(t, v)
@@ -1249,8 +1257,7 @@ class SnekEval(object):
 
         do_generator()
 
-        self.nodes.update({ast.Name: previous_name_evaller})
-
+        self.scope.dicts.pop()
         return to_return
 
 
